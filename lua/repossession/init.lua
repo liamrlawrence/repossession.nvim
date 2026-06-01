@@ -2,10 +2,11 @@ local M = {}
 
 
 M.defaults = {
-    git_session_file  = ".git/session.vim",
-    git_shada_file    = ".git/session.shada",
+    git_sentinel       = ",",
+    git_session_file   = ".git/session.vim",
+    git_shada_file     = ".git/session.shada",
     local_session_file = ".session.vim",
-    global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
+    global_shada_file  = vim.fn.stdpath("data") .. "/repossession/global.shada",
 }
 
 
@@ -26,10 +27,10 @@ function M.setup(opts)
 
             local git_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
             local in_git = vim.v.shell_error == 0
-            local opened_dot = vim.fn.argc() == 1 and vim.fn.argv(0) == "."
+            local sentinel_arg = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.git_sentinel
 
-            if in_git and opened_dot then
-                -- 'nvim .' was run inside of a git project: git session, git shada
+            if in_git and sentinel_arg then
+                -- 'nvim ,' was run inside of a git project: git session, git shada
                 session_file = git_root .. "/" .. opts.git_session_file
                 shada_file = git_root .. "/" .. opts.git_shada_file
             elseif vim.fn.argc() == 0 then
@@ -52,8 +53,16 @@ function M.setup(opts)
                     vim.cmd("source " .. vim.fn.fnameescape(session_file))
                 end
 
-                local save_timer = vim.uv.new_timer()
+                -- Wipe sentinel buffer after session has loaded
+                if sentinel_arg then
+                    local sentinel_buf = vim.fn.bufnr(opts.git_sentinel)
+                    if sentinel_buf ~= -1 then
+                        vim.api.nvim_buf_delete(sentinel_buf, { force = true })
+                    end
+                end
 
+                -- Update session on change
+                local save_timer = vim.uv.new_timer()
                 vim.api.nvim_create_autocmd({
                     "BufAdd", "BufDelete", "BufEnter",
                     "WinNew", "WinClosed",
