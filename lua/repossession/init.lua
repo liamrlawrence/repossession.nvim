@@ -5,6 +5,7 @@ M.defaults = {
     git_sentinel       = ",",
     git_session_file   = ".git/session.vim",
     git_shada_file     = ".git/session.shada",
+    local_sentinel     = "=",
     local_session_file = ".session.vim",
     global_shada_file  = vim.fn.stdpath("data") .. "/repossession/global.shada",
 }
@@ -24,19 +25,23 @@ function M.setup(opts)
         callback = function()
             local session_file = nil
             local shada_file = opts.global_shada_file
+            local sentinel_arg = nil
 
             local git_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
             local in_git = vim.v.shell_error == 0
-            local sentinel_arg = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.git_sentinel
+            local git_sentinel_arg   = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.git_sentinel
+            local local_sentinel_arg = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.local_sentinel
 
-            if in_git and sentinel_arg then
+            if in_git and git_sentinel_arg then
                 -- 'nvim ,' was run inside of a git project: git session, git shada
                 session_file = git_root .. "/" .. opts.git_session_file
-                shada_file = git_root .. "/" .. opts.git_shada_file
-            elseif vim.fn.argc() == 0 then
-                -- 'nvim' with no args: local session, global shada
+                shada_file   = git_root .. "/" .. opts.git_shada_file
+                sentinel_arg = opts.git_sentinel
+            elseif local_sentinel_arg then
+                -- 'nvim =' was run: local session, global shada
                 session_file = vim.fn.getcwd() .. "/" .. opts.local_session_file
-                shada_file = opts.global_shada_file
+                shada_file   = opts.global_shada_file
+                sentinel_arg = opts.local_sentinel
             else
                 -- no session, global shada
             end
@@ -55,7 +60,7 @@ function M.setup(opts)
 
                 -- Wipe sentinel buffer after session has loaded
                 if sentinel_arg then
-                    local sentinel_buf = vim.fn.bufnr(opts.git_sentinel)
+                    local sentinel_buf = vim.fn.bufnr(sentinel_arg)
                     if sentinel_buf ~= -1 then
                         vim.api.nvim_buf_delete(sentinel_buf, { force = true })
                     end
