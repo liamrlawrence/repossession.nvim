@@ -2,18 +2,25 @@ local M = {}
 
 
 M.defaults = {
-    git_sentinel       = ",",
-    git_session_file   = ".git/session.vim",
-    git_shada_file     = ".git/session.shada",
-    local_sentinel     = "=",
-    local_session_file = ".session.vim",
-    global_shada_file  = vim.fn.stdpath("data") .. "/repossession/global.shada",
+    local_sentinel    = "=",
+    git_sentinel      = ",",
+    git_session_file  = ".git/session.vim",
+    git_shada_file    = ".git/session.shada",
+    global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
 }
 
 
 
 function M.setup(opts)
     opts = vim.tbl_deep_extend("force", M.defaults, opts or {})
+
+    if opts.git_sentinel == opts.local_sentinel then
+        vim.notify(
+            "repossession.nvim: git_sentinel and local_sentinel must be different",
+            vim.log.levels.ERROR
+        )
+        return
+    end
 
     local augroup = vim.api.nvim_create_augroup
     local session_group = augroup("repossession_nvim", { clear = true })
@@ -29,19 +36,27 @@ function M.setup(opts)
 
             local git_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
             local in_git = vim.v.shell_error == 0
-            local git_sentinel_arg   = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.git_sentinel
-            local local_sentinel_arg = vim.fn.argc() == 1 and vim.fn.argv(0) == opts.local_sentinel
+
+            local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
+            local git_sentinel_arg = arg0 == opts.git_sentinel
+            local local_sentinel_arg = arg0 ~= nil
+                and vim.startswith(arg0, opts.local_sentinel)
+                and vim.fn.filereadable(arg0) == 0
+                and vim.fn.isdirectory(arg0) == 0
 
             if in_git and git_sentinel_arg then
                 -- 'nvim ,' was run inside of a git project: git session, git shada
                 session_file = git_root .. "/" .. opts.git_session_file
                 shada_file   = git_root .. "/" .. opts.git_shada_file
-                sentinel_arg = opts.git_sentinel
+                sentinel_arg = arg0
             elseif local_sentinel_arg then
-                -- 'nvim =' was run: local session, global shada
-                session_file = vim.fn.getcwd() .. "/" .. opts.local_session_file
-                shada_file   = opts.global_shada_file
-                sentinel_arg = opts.local_sentinel
+                -- 'nvim =' was run: local session, local shada
+                local session_name = assert(arg0):sub(#opts.local_sentinel + 1)
+                local session_filename = session_name == "" and ".session.vim" or ".session_" .. session_name .. ".vim"
+                local shada_filename   = session_name == "" and ".session.shada"  or ".session_" .. session_name .. ".shada"
+                session_file = vim.fn.getcwd() .. "/" .. session_filename
+                shada_file   = vim.fn.getcwd() .. "/" .. shada_filename
+                sentinel_arg = arg0
             else
                 -- no session, global shada
             end
