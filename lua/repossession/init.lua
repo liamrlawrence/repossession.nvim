@@ -7,6 +7,8 @@ M.defaults = {
     git_session_file  = ".git/session.vim",
     git_shada_file    = ".git/session.shada",
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
+    tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
+    tidy_sessions     = false,
 }
 
 
@@ -52,10 +54,32 @@ function M.setup(opts)
             elseif local_sentinel_arg then
                 -- 'nvim =' was run: local session, local shada
                 local session_name = assert(arg0):sub(#opts.local_sentinel + 1)
-                local session_filename = session_name == "" and ".session.vim" or ".session_" .. session_name .. ".vim"
-                local shada_filename   = session_name == "" and ".session.shada"  or ".session_" .. session_name .. ".shada"
-                session_file = vim.fn.getcwd() .. "/" .. session_filename
-                shada_file   = vim.fn.getcwd() .. "/" .. shada_filename
+                local suffix       = session_name == "" and "" or "_" .. session_name
+
+                if opts.tidy_sessions then
+                    -- store in a hashed directory under stdpath data
+                    local cwd = vim.fn.getcwd()
+                    local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
+                    vim.fn.mkdir(dir, "p")
+
+                    local sessionpath_file = dir .. "/SESSIONPATH"
+                    if vim.fn.filereadable(sessionpath_file) == 0 then
+                        local f = io.open(sessionpath_file, "w")
+                        if f then
+                            f:write(cwd .. "\n")
+                            f:close()
+                        end
+                    end
+
+                    session_file = dir .. "/session" .. suffix .. ".vim"
+                    shada_file   = dir .. "/session" .. suffix .. ".shada"
+                else
+                    -- store in cwd with a dot prefix
+                    local dir = vim.fn.getcwd()
+                    session_file = dir .. "/.session" .. suffix .. ".vim"
+                    shada_file   = dir .. "/.session" .. suffix .. ".shada"
+                end
+
                 sentinel_arg = arg0
             else
                 -- no session, global shada
