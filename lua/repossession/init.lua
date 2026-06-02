@@ -24,6 +24,22 @@ local function activate_shada(shada_file)
 end
 
 
+local function safe_mksession(session_file)
+    local tmp = session_file .. ".tmp"
+    local ok, err = pcall(function() vim.cmd("mksession! " .. vim.fn.fnameescape(tmp)) end)
+    if not ok then
+        local log = io.open(vim.fn.stdpath("data") .. "/repossession/error.log", "a")
+        if log then
+            log:write(os.date() .. " failed to save session: " .. err .. "\n")
+            log:close()
+        end
+        os.remove(tmp)
+        return
+    end
+    os.rename(tmp, session_file)
+end
+
+
 local function activate_session(session_file)
     active_session_file = session_file
 
@@ -43,7 +59,7 @@ local function activate_session(session_file)
                 if vim.api.nvim_win_get_config(win).relative ~= "" then return end
             end
 
-            vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
+            safe_mksession(session_file)
         end,
     })
     if vim.fn.filereadable(session_file) == 1 then
