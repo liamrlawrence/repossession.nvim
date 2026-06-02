@@ -40,7 +40,7 @@ local function safe_mksession(session_file)
 end
 
 
-local function activate_session(session_file)
+local function activate_session(session_file, git_root)
     active_session_file = session_file
 
     vim.api.nvim_clear_autocmds({ group = session_group })
@@ -62,8 +62,15 @@ local function activate_session(session_file)
             safe_mksession(session_file)
         end,
     })
+
     if vim.fn.filereadable(session_file) == 1 then
         vim.cmd("source " .. vim.fn.fnameescape(session_file))
+    end
+
+    if git_root then
+        vim.fn.chdir(git_root)
+    else
+        vim.fn.chdir(cwd)
     end
 end
 
@@ -95,7 +102,7 @@ function M.setup(opts)
             local shada_file = opts.global_shada_file
             local sentinel_arg = nil
 
-            local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or ""
+            local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
             local in_git = vim.v.shell_error == 0
 
             local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
@@ -147,7 +154,7 @@ function M.setup(opts)
 
             -- Load session
             if session_file then
-                activate_session(session_file)
+                activate_session(session_file, git_root and git_sentinel_arg or nil)
 
                 -- Wipe sentinel buffer after session has loaded
                 if sentinel_arg then

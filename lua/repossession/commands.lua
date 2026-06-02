@@ -7,7 +7,7 @@ local function scan_sessions(cwd, opts)
     local sessions = {}
 
     -- Check for git session
-    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or ""
+    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
     local in_git = vim.v.shell_error == 0
     if in_git then
         local git_session = git_root .. "/" .. opts.git_session_file
@@ -17,6 +17,7 @@ local function scan_sessions(cwd, opts)
                 display      = "git:" .. git_root,
                 session_file = git_session,
                 git          = true,
+                git_root     = git_root,
             })
         end
     end
@@ -144,7 +145,7 @@ local function render_picker(sessions, scan_dir, opts, cwd, activate_session, ac
         activate_shada(shada_file)
 
         -- Load session
-        activate_session(s.session_file)
+        activate_session(s.session_file, s.git_root)
         vim.notify("repossession.nvim: loaded session [" .. s.display .. "]", vim.log.levels.INFO)
     end
 
