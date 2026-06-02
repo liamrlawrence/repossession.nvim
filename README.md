@@ -24,6 +24,26 @@ regardless of which subdirectory you launched from. Local sessions similarly
 store their shada alongside the session file, keeping all state fully isolated
 per session.
 
+## Commands
+| Command | Description |
+|---|---|
+| `:Repossession` | Open a session picker for the current context |
+
+The picker lists the git session (if inside a git repo) and all local sessions
+for the current directory. Session saving transfers automatically to the newly
+loaded session.
+
+| Key | Action |
+|---|---|
+| `<CR>` | Load the selected session |
+| `c` | Create a new session |
+| `r` | Rename the selected session |
+| `d` | Delete the selected session |
+| `q` / `<Esc>` | Close the picker |
+
+- Git sessions cannot be renamed or deleted from the picker.
+- When creating or renaming a session, leaving the name blank creates or renames to the default session.
+
 ## Storage location
 By default (`tidy_sessions = false`), local sessions are written to the current
 working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
@@ -48,13 +68,6 @@ Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
 configured independently, so the global shada can be pinned to its own location
 regardless of where tidied sessions are stored.
 
-## Commands
-| Command | Description |
-|---|---|
-| `:Repossession` | Browse and load available sessions for the current context
-
-The previous session stops being saved as soon as the new one is loaded.
-
 ## Installation
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
@@ -64,6 +77,7 @@ return {
 
     config = function()
         require("repossession").setup()
+        vim.keymap.set("n", "<leader>rp", "<cmd>Repossession<cr>", { desc = "Session manager" })
     end,
 }
 ```

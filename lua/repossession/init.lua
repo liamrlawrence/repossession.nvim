@@ -1,6 +1,7 @@
 local M = {}
 local commands = require("repossession.commands")
 local session_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
+local active_session_file = nil
 local active_timer = nil
 
 
@@ -17,12 +18,13 @@ M.defaults = {
 
 
 local function register_save_autocmd(session_file)
+    active_session_file = session_file
+
     if active_timer then
         active_timer:stop()
         active_timer:close()
         active_timer = nil
     end
-
     local save_timer = vim.uv.new_timer()
     active_timer = save_timer
 
@@ -73,7 +75,7 @@ function M.setup(opts)
 
     -- Commands
     vim.api.nvim_create_user_command("Repossession", function()
-        commands.repossession(opts, register_save_autocmd)
+        commands.repossession(opts, register_save_autocmd, active_session_file)
     end, { desc = "Browse and load available sessions for the current context" })
 
 

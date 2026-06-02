@@ -1,8 +1,9 @@
 local M = {}
+local picker_win_id = nil
 
 
 
-function M.repossession(opts, register_save_autocmd)
+local function scan_sessions(opts)
     local sessions = {}
 
     -- Check for git session
@@ -13,8 +14,9 @@ function M.repossession(opts, register_save_autocmd)
         if vim.fn.filereadable(git_session) == 1 then
             table.insert(sessions, {
                 label        = "[git]   " .. git_root,
-                display      = "[git] " .. git_root,
+                display      = "git:" .. git_root,
                 session_file = git_session,
+                git          = true,
             })
         end
     end
@@ -22,7 +24,7 @@ function M.repossession(opts, register_save_autocmd)
     -- Find local sessions
     local cwd = vim.fn.getcwd()
     local scan_dir = opts.tidy_sessions and opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8) or cwd
-    local file_pattern = opts.tidy_sessions and "^session.*%.vim$" or "^%.session.*%.vim$"
+    local file_pattern = opts.tidy_sessions and "^session.*%.vim$"    or "^%.session.*%.vim$"
     local name_capture = opts.tidy_sessions and "^session_(.+)%.vim$" or "^%.session_(.+)%.vim$"
 
     local handle = vim.uv.fs_scandir(scan_dir)
@@ -31,25 +33,33 @@ function M.repossession(opts, register_save_autocmd)
             local fname, ftype = vim.uv.fs_scandir_next(handle)
             if not fname then break end
             if ftype == "file" and fname:match(file_pattern) then
-                local session_name = fname:match(name_capture) or "(default)"
+                local session_name = fname:match(name_capture)
                 local prefix_label = in_git and "[local] " or ""
                 table.insert(sessions, {
-                    label        = prefix_label .. session_name,
-                    display      = session_name,
+                    label        = prefix_label .. (session_name or "(default)"),
+                    display      = session_name or "default",
                     session_file = scan_dir .. "/" .. fname,
+                    git          = false,
                 })
             end
         end
+    end
+
+    table.sort(sessions, function(a, b) return a.label < b.label end)
+    return sessions, scan_dir
+end
+
+
+local function render_picker(sessions, scan_dir, opts, register_save_autocmd, active_session_file)
+    if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
+        vim.api.nvim_set_current_win(picker_win_id)
+        return
     end
 
     if #sessions == 0 then
         vim.notify("repossession.nvim: no sessions found", vim.log.levels.INFO)
         return
     end
-
-
-    -- Build floating window
-    table.sort(sessions, function(a, b) return a.label < b.label end)   -- Sort alphabetically by label
 
     local lines = {}
     for i, s in ipairs(sessions) do
@@ -81,33 +91,165 @@ function M.repossession(opts, register_save_autocmd)
         title_pos = "center",
     })
     vim.wo[win].cursorline = true
+    picker_win_id = win
 
-    -- Functions
-    local function load_session(idx)
-        local s = sessions[idx]
-        if s then
+    vim.api.nvim_create_autocmd("WinClosed", {
+        pattern  = tostring(win),
+        once     = true,
+        callback = function()
+            picker_win_id = nil
+        end,
+    })
+
+    local function rerender()
+        if vim.api.nvim_win_is_valid(win) then
             vim.api.nvim_win_close(win, true)
-
-            -- Load shada
-            local shada_file = s.session_file:gsub("%.vim$", ".shada")
-            if vim.fn.filereadable(shada_file) == 1 then
-                vim.opt.shadafile = shada_file
-                vim.cmd("rshada!")
-            end
-
-            -- Load session
-            vim.cmd("source " .. vim.fn.fnameescape(s.session_file))
-            vim.notify("repossession.nvim: loaded session | " .. s.display, vim.log.levels.INFO)
-
-            -- Re-register save autocmd with the new session file
-            register_save_autocmd(s.session_file)
         end
+        local new_sessions, new_scan_dir = scan_sessions(opts)
+        render_picker(new_sessions, new_scan_dir, opts, register_save_autocmd, active_session_file)
     end
 
+
+    -- Picker functions
+    local function load_session(idx)
+        local s = sessions[idx]
+        if not s then return end
+        vim.api.nvim_win_close(win, true)
+
+        -- Load shada
+        local shada_file = s.session_file:gsub("%.vim$", ".shada")
+        if vim.fn.filereadable(shada_file) == 1 then
+            vim.opt.shadafile = shada_file
+            vim.cmd("rshada!")
+        end
+
+        -- Load session
+        vim.cmd("source " .. vim.fn.fnameescape(s.session_file))
+        vim.notify("repossession.nvim: loaded session [" .. s.display .. "]", vim.log.levels.INFO)
+        register_save_autocmd(s.session_file)
+    end
+
+
+    local function create_session()
+        vim.api.nvim_win_close(win, true)
+        local new_name = vim.fn.input("New session name: ")
+        local new_session_file = new_name == ""
+            and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
+            or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
+
+        if vim.fn.filereadable(new_session_file) == 1 then
+            local target = new_name == "" and "default" or new_name
+            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            rerender()
+            return
+        end
+
+        vim.cmd("mksession! " .. vim.fn.fnameescape(new_session_file))
+        local display_name = new_name == "" and "default" or new_name
+        vim.notify("repossession.nvim: created session [" .. display_name .. "]", vim.log.levels.INFO)
+        rerender()
+    end
+
+
+    local function rename_session(idx)
+        local s = sessions[idx]
+        if not s or s.git then
+            vim.notify("repossession.nvim: git sessions cannot be renamed", vim.log.levels.WARN)
+            return
+        end
+
+        vim.api.nvim_win_close(win, true)
+        local new_name = vim.fn.input("Rename session to: ")
+        local new_session_file = new_name == ""
+            and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
+            or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
+
+        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
+        if vim.fn.filereadable(new_session_file) == 1 then
+            local target = new_name == "" and "default" or new_name
+            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            rerender()
+            return
+        end
+
+        local ok, err = os.rename(s.session_file, new_session_file)
+        if not ok then
+            vim.notify("repossession.nvim: failed to rename session file: " .. err, vim.log.levels.ERROR)
+            rerender()
+            return
+        end
+
+        if vim.fn.filereadable(old_shada_file) == 1 then
+            ok, err = os.rename(old_shada_file, new_shada_file)
+            if not ok then
+                vim.notify("repossession.nvim: failed to rename shada file: " .. err, vim.log.levels.ERROR)
+                rerender()
+                return
+            end
+        end
+
+        local display_name = new_name == "" and "default" or new_name
+        vim.notify("repossession.nvim: renamed session to [" .. display_name .. "]", vim.log.levels.INFO)
+        rerender()
+    end
+
+
+    local function delete_session(idx)
+        local s = sessions[idx]
+        if not s or s.git then
+            vim.notify("repossession.nvim: git sessions cannot be deleted", vim.log.levels.WARN)
+            return
+        end
+
+        if s.session_file == active_session_file then
+            vim.notify("repossession.nvim: cannot delete the active session", vim.log.levels.ERROR)
+            return
+        end
+
+        vim.api.nvim_win_close(win, true)
+        local confirm = vim.fn.input("Delete session [" .. s.display .. "]? (y/n): ")
+        if confirm ~= "y" then
+            vim.notify("repossession.nvim: delete cancelled", vim.log.levels.INFO)
+            rerender()
+            return
+        end
+
+        local ok, err = os.remove(s.session_file)
+        if not ok then
+            vim.notify("repossession.nvim: failed to delete session file: " .. err, vim.log.levels.ERROR)
+            rerender()
+            return
+        end
+
+        local shada_file = s.session_file:gsub("%.vim$", ".shada")
+        if vim.fn.filereadable(shada_file) == 1 then
+            ok, err = os.remove(shada_file)
+            if not ok then
+                vim.notify("repossession.nvim: failed to delete shada file: " .. err, vim.log.levels.ERROR)
+                rerender()
+                return
+            end
+        end
+
+        vim.notify("repossession.nvim: deleted session [" .. s.display .. "]", vim.log.levels.INFO)
+        rerender()
+    end
+
+
     -- Keymaps
-    vim.keymap.set("n", "q",     function() vim.api.nvim_win_close(win, true)                 end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true)                 end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<CR>",  function() load_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "q",     function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<CR>",  function() load_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "c",     function() create_session()                                    end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
+end
+
+
+function M.repossession(opts, register_save_autocmd, active_session_file)
+    local sessions, scan_dir = scan_sessions(opts)
+    render_picker(sessions, scan_dir, opts, register_save_autocmd, active_session_file)
 end
 
 
