@@ -122,6 +122,24 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
         if not s then return end
         vim.api.nvim_win_close(win, true)
 
+        -- Check for unsaved buffers
+        local unsaved = {}
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_loaded(b)
+                and vim.bo[b].modified
+                and vim.api.nvim_buf_get_name(b) ~= "" then
+                table.insert(unsaved, vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":~:."))
+            end
+        end
+
+        if #unsaved > 0 then
+            vim.notify(
+                "repossession.nvim: unsaved changes in [" .. table.concat(unsaved, ", ") .. "]",
+                vim.log.levels.WARN
+            )
+            return
+        end
+
         -- Load shada
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
         if vim.fn.filereadable(shada_file) == 1 then
