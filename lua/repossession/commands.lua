@@ -37,7 +37,7 @@ local function scan_sessions(opts)
                 local prefix_label = in_git and "[local] " or ""
                 table.insert(sessions, {
                     label        = prefix_label .. (session_name or "(default)"),
-                    display      = session_name or "default",
+                    display      = session_name or "(default)",
                     session_file = scan_dir .. "/" .. fname,
                     git          = false,
                 })
@@ -62,8 +62,13 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
     end
 
     local lines = {}
+    local active_idx = 1
     for i, s in ipairs(sessions) do
-        table.insert(lines, string.format(" %d  %s", i, s.label))
+        local marker = s.session_file == active_session_file and "~ " or "  "
+        table.insert(lines, string.format(" %d  %s%s", i, marker, s.display))
+        if s.session_file == active_session_file then
+            active_idx = i
+        end
     end
 
     local width = math.min(80, math.max(30, (function()
@@ -92,6 +97,7 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
     })
     vim.wo[win].cursorline = true
     picker_win_id = win
+    vim.api.nvim_win_set_cursor(win, { active_idx, 0 })
 
     vim.api.nvim_create_autocmd("WinClosed", {
         pattern  = tostring(win),
