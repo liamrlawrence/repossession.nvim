@@ -2,7 +2,6 @@ local M = {}
 local commands = require("repossession.commands")
 local session_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
 local active_session_file = nil
-local active_timer = nil
 
 
 M.defaults = {
@@ -20,14 +19,6 @@ M.defaults = {
 local function register_save_autocmd(session_file)
     active_session_file = session_file
 
-    if active_timer then
-        active_timer:stop()
-        active_timer:close()
-        active_timer = nil
-    end
-    local save_timer = vim.uv.new_timer()
-    active_timer = save_timer
-
     vim.api.nvim_clear_autocmds({ group = session_group })
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
@@ -44,16 +35,7 @@ local function register_save_autocmd(session_file)
                 if vim.api.nvim_win_get_config(win).relative ~= "" then return end
             end
 
-            -- Timer may be nil if system resources are exhausted
-            if not save_timer then
-                vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
-                return
-            end
-
-            -- Debounce: wait 300ms before writing
-            save_timer:start(300, 0, vim.schedule_wrap(function()
-                vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
-            end))
+            vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
         end,
     })
 end
@@ -61,7 +43,6 @@ end
 
 function M.setup(opts)
     opts = vim.tbl_deep_extend("force", M.defaults, opts or {})
-
 
     -- Guards
     if opts.git_sentinel == opts.local_sentinel then
@@ -72,12 +53,10 @@ function M.setup(opts)
         return
     end
 
-
     -- Commands
     vim.api.nvim_create_user_command("Repossession", function()
         commands.repossession(opts, register_save_autocmd, active_session_file)
     end, { desc = "Browse and load available sessions for the current context" })
-
 
     -- Initialize
     vim.api.nvim_create_autocmd("VimEnter", {
