@@ -5,8 +5,8 @@ Automatic session management based on how you launch Neovim.
 | Invocation | Session | Shada |
 |---|---|---|
 | `nvim ,` inside a git repo | `.git/session.vim` | `.git/session.shada` |
-| `nvim =` | `.session.vim` in cwd | `.session.shada` in cwd |
-| `nvim =foo` | `.session_foo.vim` in cwd | `.session_foo.shada` in cwd |
+| `nvim =` | `<hash>/session.vim` | `<hash>/session.shada` |
+| `nvim =foo` | `<hash>/session_foo.vim` | `<hash>/session_foo.shada` |
 | `nvim` (no args) | none | global shada |
 | `nvim <file>` | none | global shada |
 
@@ -45,11 +45,8 @@ loaded session.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
 ## Storage location
-By default (`tidy_sessions = false`), local sessions are written to the current
-working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
-`.shada` counterparts). Set `tidy_sessions = true` to instead store them under
-`tidy_dir` (Neovim's data directory by default), in a folder named after a hash
-of the cwd:
+By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
+(Neovim's data directory by default), in a folder named after a hash of the cwd:
 
 ```
 ~/.local/share/nvim/repossession/<hash>/
@@ -63,6 +60,10 @@ of the cwd:
 All sessions launched from the same directory share one hash folder. The
 `SESSIONPATH` file records the originating path so the folder can be identified
 later. This keeps your working directories free of session files entirely.
+
+Set `tidy_sessions = false` to instead write local sessions to the current
+working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
+`.shada` counterparts).
 
 Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
 configured independently, so the global shada can be pinned to its own location
@@ -93,22 +94,21 @@ require("repossession").setup({
     git_shada_file    = ".git/session.shada",
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
-    tidy_sessions     = false,
+    tidy_sessions     = true,
 })
 ```
 
 ## Recommendations
-If using the default `tidy_sessions = false`, add repossession's local session
-files to your global gitignore so they do not show up as untracked files in git
-projects:
+If using `tidy_sessions = false`, add repossession's local session files to your
+global gitignore so they do not show up as untracked files in git projects:
 
 ```sh
 echo ".session*.vim"   >> ~/.config/git/ignore
 echo ".session*.shada" >> ~/.config/git/ignore
 ```
 
-With `tidy_sessions = true` this is unnecessary, since nothing is written to your
-working directories.
+With the default `tidy_sessions = true` this is unnecessary, since nothing is
+written to your working directories.
 
 ## License
 repossession.nvim is released under the MIT license.

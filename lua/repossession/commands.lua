@@ -50,7 +50,8 @@ local function scan_sessions(opts)
 end
 
 
-local function render_picker(sessions, scan_dir, opts, register_save_autocmd, active_session_file)
+local function render_picker(sessions, scan_dir, opts, activate_session, activate_shada, get_active_session_file)
+    local active_session_file = get_active_session_file()
     if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
         vim.api.nvim_set_current_win(picker_win_id)
         return
@@ -112,7 +113,7 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
             vim.api.nvim_win_close(win, true)
         end
         local new_sessions, new_scan_dir = scan_sessions(opts)
-        render_picker(new_sessions, new_scan_dir, opts, register_save_autocmd, active_session_file)
+        render_picker(new_sessions, new_scan_dir, opts, activate_session, activate_shada, get_active_session_file)
     end
 
 
@@ -120,7 +121,6 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
     local function load_session(idx)
         local s = sessions[idx]
         if not s then return end
-        vim.api.nvim_win_close(win, true)
 
         -- Check for unsaved buffers
         local unsaved = {}
@@ -131,7 +131,6 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
                 table.insert(unsaved, vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":~:."))
             end
         end
-
         if #unsaved > 0 then
             vim.notify(
                 "repossession.nvim: unsaved changes in [" .. table.concat(unsaved, ", ") .. "]",
@@ -139,24 +138,21 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
             )
             return
         end
+        vim.api.nvim_win_close(win, true)
 
         -- Load shada
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
-        if vim.fn.filereadable(shada_file) == 1 then
-            vim.opt.shadafile = shada_file
-            vim.cmd("rshada!")
-        end
+        activate_shada(shada_file)
 
         -- Load session
-        vim.cmd("source " .. vim.fn.fnameescape(s.session_file))
+        activate_session(s.session_file)
         vim.notify("repossession.nvim: loaded session [" .. s.display .. "]", vim.log.levels.INFO)
-        register_save_autocmd(s.session_file)
     end
 
 
     local function create_session()
         vim.api.nvim_win_close(win, true)
-        local new_name = vim.fn.input("New session name: ")
+        local new_name = vim.fn.input("New session name: "):gsub("\n", "")
         local new_session_file = new_name == ""
             and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
             or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
@@ -183,7 +179,7 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
         end
 
         vim.api.nvim_win_close(win, true)
-        local new_name = vim.fn.input("Rename session to: ")
+        local new_name = vim.fn.input("Rename session to: "):gsub("\n", "")
         local new_session_file = new_name == ""
             and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
             or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
@@ -214,7 +210,13 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
         end
 
         local display_name = new_name == "" and "default" or new_name
-        vim.notify("repossession.nvim: renamed session to [" .. display_name .. "]", vim.log.levels.INFO)
+        if s.session_file == active_session_file then
+            activate_shada(new_shada_file)
+            activate_session(new_session_file)
+            vim.notify("repossession.nvim: renamed current session to [" .. display_name .. "]", vim.log.levels.INFO)
+        else
+            vim.notify("repossession.nvim: renamed session to [" .. display_name .. "]", vim.log.levels.INFO)
+        end
         rerender()
     end
 
@@ -227,7 +229,7 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
         end
 
         if s.session_file == active_session_file then
-            vim.notify("repossession.nvim: cannot delete the active session", vim.log.levels.ERROR)
+            vim.notify("repossession.nvim: cannot delete the active session", vim.log.levels.WARN)
             return
         end
 
@@ -271,9 +273,9 @@ local function render_picker(sessions, scan_dir, opts, register_save_autocmd, ac
 end
 
 
-function M.repossession(opts, register_save_autocmd, active_session_file)
+function M.repossession(opts, activate_session, activate_shada, get_active_session_file)
     local sessions, scan_dir = scan_sessions(opts)
-    render_picker(sessions, scan_dir, opts, register_save_autocmd, active_session_file)
+    render_picker(sessions, scan_dir, opts, activate_session, activate_shada, get_active_session_file)
 end
 
 

@@ -11,12 +11,19 @@ M.defaults = {
     git_shada_file    = ".git/session.shada",
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
-    tidy_sessions     = false,
+    tidy_sessions     = true,
 }
 
 
+local function activate_shada(shada_file)
+    vim.opt.shadafile = shada_file
+    if vim.fn.filereadable(shada_file) == 1 then
+        vim.cmd("rshada!")
+    end
+end
 
-local function register_save_autocmd(session_file)
+
+local function activate_session(session_file)
     active_session_file = session_file
 
     vim.api.nvim_clear_autocmds({ group = session_group })
@@ -38,6 +45,9 @@ local function register_save_autocmd(session_file)
             vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
         end,
     })
+    if vim.fn.filereadable(session_file) == 1 then
+        vim.cmd("source " .. vim.fn.fnameescape(session_file))
+    end
 end
 
 
@@ -55,7 +65,7 @@ function M.setup(opts)
 
     -- Commands
     vim.api.nvim_create_user_command("Repossession", function()
-        commands.repossession(opts, register_save_autocmd, active_session_file)
+        commands.repossession(opts, activate_session, activate_shada, function() return active_session_file end)
     end, { desc = "Browse and load available sessions for the current context" })
 
     -- Initialize
@@ -118,16 +128,11 @@ function M.setup(opts)
             end
 
             -- Load shada
-            vim.opt.shadafile = shada_file
-            if vim.fn.filereadable(shada_file) == 1 then
-                vim.cmd("rshada!")
-            end
+            activate_shada(shada_file)
 
             -- Load session
             if session_file then
-                if vim.fn.filereadable(session_file) == 1 then
-                    vim.cmd("source " .. vim.fn.fnameescape(session_file))
-                end
+                activate_session(session_file)
 
                 -- Wipe sentinel buffer after session has loaded
                 if sentinel_arg then
@@ -136,8 +141,6 @@ function M.setup(opts)
                         vim.api.nvim_buf_delete(sentinel_buf, { force = true })
                     end
                 end
-
-                register_save_autocmd(session_file)
             end
         end,
     })
