@@ -2,6 +2,7 @@ local M = {}
 local commands = require("repossession.commands")
 local session_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
 local active_session_file = nil
+local cwd = vim.fn.getcwd()
 
 
 M.defaults = {
@@ -65,7 +66,7 @@ function M.setup(opts)
 
     -- Commands
     vim.api.nvim_create_user_command("Repossession", function()
-        commands.repossession(opts, activate_session, activate_shada, function() return active_session_file end)
+        commands.repossession(opts, cwd, activate_session, activate_shada, function() return active_session_file end)
     end, { desc = "Browse and load available sessions for the current context" })
 
     -- Initialize
@@ -78,7 +79,7 @@ function M.setup(opts)
             local shada_file = opts.global_shada_file
             local sentinel_arg = nil
 
-            local git_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
+            local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or ""
             local in_git = vim.v.shell_error == 0
 
             local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
@@ -100,7 +101,6 @@ function M.setup(opts)
 
                 if opts.tidy_sessions then
                     -- store in a hashed directory under tidy_dir
-                    local cwd = vim.fn.getcwd()
                     local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
                     vim.fn.mkdir(dir, "p")
 
@@ -117,9 +117,8 @@ function M.setup(opts)
                     shada_file   = dir .. "/session" .. suffix .. ".shada"
                 else
                     -- store in cwd with a dot prefix
-                    local dir = vim.fn.getcwd()
-                    session_file = dir .. "/.session" .. suffix .. ".vim"
-                    shada_file   = dir .. "/.session" .. suffix .. ".shada"
+                    session_file = cwd .. "/.session" .. suffix .. ".vim"
+                    shada_file   = cwd .. "/.session" .. suffix .. ".shada"
                 end
 
                 sentinel_arg = arg0

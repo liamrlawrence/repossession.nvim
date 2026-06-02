@@ -3,11 +3,11 @@ local picker_win_id = nil
 
 
 
-local function scan_sessions(opts)
+local function scan_sessions(cwd, opts)
     local sessions = {}
 
     -- Check for git session
-    local git_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
+    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or ""
     local in_git = vim.v.shell_error == 0
     if in_git then
         local git_session = git_root .. "/" .. opts.git_session_file
@@ -22,7 +22,6 @@ local function scan_sessions(opts)
     end
 
     -- Find local sessions
-    local cwd = vim.fn.getcwd()
     local scan_dir = opts.tidy_sessions and opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8) or cwd
     local file_pattern = opts.tidy_sessions and "^session.*%.vim$"    or "^%.session.*%.vim$"
     local name_capture = opts.tidy_sessions and "^session_(.+)%.vim$" or "^%.session_(.+)%.vim$"
@@ -50,7 +49,7 @@ local function scan_sessions(opts)
 end
 
 
-local function render_picker(sessions, scan_dir, opts, activate_session, activate_shada, get_active_session_file)
+local function render_picker(sessions, scan_dir, opts, cwd, activate_session, activate_shada, get_active_session_file)
     local active_session_file = get_active_session_file()
     if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
         vim.api.nvim_set_current_win(picker_win_id)
@@ -112,8 +111,8 @@ local function render_picker(sessions, scan_dir, opts, activate_session, activat
         if vim.api.nvim_win_is_valid(win) then
             vim.api.nvim_win_close(win, true)
         end
-        local new_sessions, new_scan_dir = scan_sessions(opts)
-        render_picker(new_sessions, new_scan_dir, opts, activate_session, activate_shada, get_active_session_file)
+        local new_sessions, new_scan_dir = scan_sessions(cwd, opts)
+        render_picker(new_sessions, new_scan_dir, opts, cwd, activate_session, activate_shada, get_active_session_file)
     end
 
 
@@ -273,9 +272,9 @@ local function render_picker(sessions, scan_dir, opts, activate_session, activat
 end
 
 
-function M.repossession(opts, activate_session, activate_shada, get_active_session_file)
-    local sessions, scan_dir = scan_sessions(opts)
-    render_picker(sessions, scan_dir, opts, activate_session, activate_shada, get_active_session_file)
+function M.repossession(opts, cwd, activate_session, activate_shada, get_active_session_file)
+    local sessions, scan_dir = scan_sessions(cwd, opts)
+    render_picker(sessions, scan_dir, opts, cwd, activate_session, activate_shada, get_active_session_file)
 end
 
 
