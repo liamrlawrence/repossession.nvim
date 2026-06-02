@@ -1,4 +1,7 @@
 local M = {}
+local commands = require("repossession.commands")
+local session_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
+local active_timer = nil
 
 
 M.defaults = {
@@ -13,9 +16,52 @@ M.defaults = {
 
 
 
+local function register_save_autocmd(session_file)
+    if active_timer then
+        active_timer:stop()
+        active_timer:close()
+        active_timer = nil
+    end
+
+    local save_timer = vim.uv.new_timer()
+    active_timer = save_timer
+
+    vim.api.nvim_clear_autocmds({ group = session_group })
+    vim.api.nvim_create_autocmd({
+        "BufAdd", "BufDelete", "BufEnter",
+        "WinNew", "WinClosed",
+        "TabNew", "TabClosed",
+        "VimLeavePre",
+    }, {
+        desc = "Save vim session",
+        group = session_group,
+        callback = function(ev)
+            -- Ignore floating windows (hover docs, telescope, etc.)
+            if ev.event ~= "VimLeavePre" then
+                local win = vim.api.nvim_get_current_win()
+                if vim.api.nvim_win_get_config(win).relative ~= "" then return end
+            end
+
+            -- Timer may be nil if system resources are exhausted
+            if not save_timer then
+                vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
+                return
+            end
+
+            -- Debounce: wait 300ms before writing
+            save_timer:start(300, 0, vim.schedule_wrap(function()
+                vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
+            end))
+        end,
+    })
+end
+
+
 function M.setup(opts)
     opts = vim.tbl_deep_extend("force", M.defaults, opts or {})
 
+
+    -- Guards
     if opts.git_sentinel == opts.local_sentinel then
         vim.notify(
             "repossession.nvim: git_sentinel and local_sentinel must be different",
@@ -24,9 +70,14 @@ function M.setup(opts)
         return
     end
 
-    local augroup = vim.api.nvim_create_augroup
-    local session_group = augroup("repossession_nvim", { clear = true })
 
+    -- Commands
+    vim.api.nvim_create_user_command("Repossession", function()
+        commands.repossession(opts, register_save_autocmd)
+    end, { desc = "Browse and load available sessions for the current context" })
+
+
+    -- Initialize
     vim.api.nvim_create_autocmd("VimEnter", {
         desc = "Initialize vim session",
         group = session_group,
@@ -57,7 +108,7 @@ function M.setup(opts)
                 local suffix       = session_name == "" and "" or "_" .. session_name
 
                 if opts.tidy_sessions then
-                    -- store in a hashed directory under stdpath data
+                    -- store in a hashed directory under tidy_dir
                     local cwd = vim.fn.getcwd()
                     local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
                     vim.fn.mkdir(dir, "p")
@@ -105,35 +156,7 @@ function M.setup(opts)
                     end
                 end
 
-                -- Update session on change
-                local save_timer = vim.uv.new_timer()
-                vim.api.nvim_create_autocmd({
-                    "BufAdd", "BufDelete", "BufEnter",
-                    "WinNew", "WinClosed",
-                    "TabNew", "TabClosed",
-                    "VimLeavePre",
-                }, {
-                    desc = "Save vim session",
-                    group = session_group,
-                    callback = function(ev)
-                        -- Ignore floating windows (hover docs, telescope, etc.)
-                        if ev.event ~= "VimLeavePre" then
-                            local win = vim.api.nvim_get_current_win()
-                            if vim.api.nvim_win_get_config(win).relative ~= "" then return end
-                        end
-
-                        -- Timer may be nil if system resources are exhausted
-                        if not save_timer then
-                            vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
-                            return
-                        end
-
-                        -- Debounce: wait 300ms before writing
-                        save_timer:start(300, 0, vim.schedule_wrap(function()
-                            vim.cmd("mksession! " .. vim.fn.fnameescape(session_file))
-                        end))
-                    end,
-                })
+                register_save_autocmd(session_file)
             end
         end,
     })

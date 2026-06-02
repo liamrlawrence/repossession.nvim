@@ -48,6 +48,13 @@ Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
 configured independently, so the global shada can be pinned to its own location
 regardless of where tidied sessions are stored.
 
+## Commands
+| Command | Description |
+|---|---|
+| `:Repossession` | Browse and load available sessions for the current context
+
+The previous session stops being saved as soon as the new one is loaded.
+
 ## Installation
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
