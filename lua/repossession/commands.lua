@@ -164,6 +164,7 @@ local function render_picker(sessions, scan_dir, opts, cwd, activate_session, ac
             return
         end
 
+        vim.fn.mkdir(vim.fn.fnamemodify(new_session_file, ":h"), "p")
         vim.cmd("mksession! " .. vim.fn.fnameescape(new_session_file))
         local display_name = new_name == "" and "default" or new_name
         vim.notify("repossession.nvim: created session [" .. display_name .. "]", vim.log.levels.INFO)
