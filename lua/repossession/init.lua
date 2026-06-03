@@ -235,9 +235,9 @@ local function repossession()
         local unsaved = {}
         for _, b in ipairs(vim.api.nvim_list_bufs()) do
             if vim.api.nvim_buf_is_loaded(b)
-                and vim.bo[b].modified
-                and vim.api.nvim_buf_get_name(b) ~= "" then
-                table.insert(unsaved, vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":~:."))
+                and vim.bo[b].modified then
+                local name = vim.api.nvim_buf_get_name(b)
+                table.insert(unsaved, name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]")
             end
         end
         if #unsaved > 0 then
