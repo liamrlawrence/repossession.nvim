@@ -259,6 +259,11 @@ local function repossession()
 
         local display_name = new_name == "" and "default" or new_name
         safe_mksession(new_session_file)
+
+        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        activate_shada(new_shada_file)
+        activate_session(new_session_file, nil)
+
         vim.notify("repossession.nvim: created session [" .. display_name .. "]", vim.log.levels.INFO)
         rerender()
     end
