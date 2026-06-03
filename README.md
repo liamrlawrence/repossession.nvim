@@ -1,7 +1,9 @@
 # repossession.nvim
 Automatic session management based on how you launch Neovim.
 
+
 ## Behavior
+
 | Invocation | Session | Shada |
 |---|---|---|
 | `nvim ,` inside a git repo | `.git/session.vim` | `.git/session.shada` |
@@ -24,7 +26,9 @@ regardless of which subdirectory you launched from. Local sessions similarly
 store their shada alongside the session file, keeping all state fully isolated
 per session.
 
+
 ## Commands
+
 | Command | Description |
 |---|---|
 | `:Repossession` | Open a session picker for the current context |
@@ -45,7 +49,9 @@ loaded session.
 - Git sessions cannot be renamed or deleted from the picker.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
+
 ## Storage location
+
 By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
 (Neovim's data directory by default), in a folder named after a hash of the cwd:
 
@@ -70,7 +76,9 @@ Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
 configured independently, so the global shada can be pinned to its own location
 regardless of where tidied sessions are stored.
 
+
 ## Installation
+
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
@@ -79,12 +87,15 @@ return {
 
     config = function()
         require("repossession").setup()
+
         vim.keymap.set("n", "<leader>rp", "<cmd>Repossession<cr>", { desc = "Session manager" })
     end,
 }
 ```
 
+
 ## Configuration
+
 Default values:
 
 ```lua
@@ -99,7 +110,9 @@ require("repossession").setup({
 })
 ```
 
+
 ## Recommendations
+
 If using `tidy_sessions = false`, add repossession's local session files to your
 global gitignore so they do not show up as untracked files in git projects:
 
@@ -111,6 +124,8 @@ echo ".session*.shada" >> ~/.config/git/ignore
 With the default `tidy_sessions = true` this is unnecessary, since nothing is
 written to your working directories.
 
+
 ## License
+
 repossession.nvim is released under the MIT license.
 
