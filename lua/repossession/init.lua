@@ -139,18 +139,7 @@ local function scan_sessions()
 end
 
 
-local function repossession()
-    local sessions, scan_dir = scan_sessions()
-    if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
-        vim.api.nvim_set_current_win(picker_win_id)
-        return
-    end
-
-    if #sessions == 0 then
-        vim.notify("repossession.nvim: no sessions found", vim.log.levels.INFO)
-        return
-    end
-
+local function open_picker(sessions)
     local lines = {}
     local active_idx = 1
     for i, s in ipairs(sessions) do
@@ -192,10 +181,27 @@ local function repossession()
     vim.api.nvim_create_autocmd("WinClosed", {
         pattern  = tostring(win),
         once     = true,
-        callback = function()
-            picker_win_id = nil
-        end,
+        callback = function() picker_win_id = nil end,
     })
+
+    return buf, win
+end
+
+
+local function repossession()
+    local sessions, scan_dir = scan_sessions()
+    if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
+        vim.api.nvim_set_current_win(picker_win_id)
+        return
+    end
+
+    if #sessions == 0 then
+        vim.notify("repossession.nvim: no sessions found", vim.log.levels.INFO)
+        return
+    end
+
+    local buf, win = open_picker(sessions)
+
 
     local function rerender()
         if vim.api.nvim_win_is_valid(win) then
@@ -205,8 +211,8 @@ local function repossession()
     end
 
 
-    -- Input that returns nil on <Esc>
     local function input(prompt)
+        -- Input that returns nil on <Esc>
         local CANCELLED = "\0"
         local ok, result = pcall(vim.fn.input, { prompt = prompt, cancelreturn = CANCELLED })
         if not ok or result == CANCELLED then return nil end
@@ -221,7 +227,6 @@ local function repossession()
     end
 
 
-    -- Picker functions
     local function load_session(idx)
         local s = sessions[idx]
         if not s then return end
@@ -258,6 +263,7 @@ local function repossession()
         vim.api.nvim_win_close(win, true)
         local new_name = input("New session name: ")
         if new_name == nil then
+            vim.notify("repossession.nvim: new session cancelled", vim.log.levels.INFO)
             rerender()
             return
         end
@@ -287,7 +293,7 @@ local function repossession()
             end
         end
 
-        vim.notify("repossession.nvim: created blank session [" .. display_name .. "]", vim.log.levels.INFO)
+        vim.notify("repossession.nvim: created new session [" .. display_name .. "]", vim.log.levels.INFO)
         rerender()
     end
 
@@ -296,6 +302,7 @@ local function repossession()
         vim.api.nvim_win_close(win, true)
         local new_name = input("Copied session name: ")
         if new_name == nil then
+            vim.notify("repossession.nvim: copy cancelled", vim.log.levels.INFO)
             rerender()
             return
         end
@@ -334,9 +341,12 @@ local function repossession()
 
         vim.api.nvim_win_close(win, true)
         local new_name = input("Rename session to: ")
-        local new_session_file = new_name == ""
-            and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
-            or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
+        if new_name == nil then
+            vim.notify("repossession.nvim: rename cancelled", vim.log.levels.INFO)
+            rerender()
+            return
+        end
+        local new_session_file = get_new_session_path(new_name)
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
         local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
