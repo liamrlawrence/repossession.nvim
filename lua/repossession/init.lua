@@ -196,7 +196,7 @@ local function repossession()
     end
 
     if #sessions == 0 then
-        vim.notify("repossession.nvim: no sessions found", vim.log.levels.INFO)
+        vim.notify("No sessions found", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
 
@@ -242,8 +242,9 @@ local function repossession()
         end
         if #unsaved > 0 then
             vim.notify(
-                "repossession.nvim: unsaved changes in [" .. table.concat(unsaved, ", ") .. "]",
-                vim.log.levels.WARN
+                "Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]",
+                vim.log.levels.WARN,
+                { title = "repossession.nvim" }
             )
             return
         end
@@ -255,7 +256,7 @@ local function repossession()
 
         -- Load session
         activate_session(s.session_file, s.git_root)
-        vim.notify("repossession.nvim: loaded session [" .. s.display .. "]", vim.log.levels.INFO)
+        vim.notify("Loaded session [" .. s.display .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
 
 
@@ -263,7 +264,7 @@ local function repossession()
         vim.api.nvim_win_close(win, true)
         local new_name = input("New session name: ")
         if new_name == nil then
-            vim.notify("repossession.nvim: new session cancelled", vim.log.levels.INFO)
+            vim.notify("New session cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -271,7 +272,7 @@ local function repossession()
 
         if vim.fn.filereadable(new_session_file) == 1 then
             local target = new_name == "" and "default" or new_name
-            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -293,7 +294,7 @@ local function repossession()
             end
         end
 
-        vim.notify("repossession.nvim: created new session [" .. display_name .. "]", vim.log.levels.INFO)
+        vim.notify("Created new session [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -302,7 +303,7 @@ local function repossession()
         vim.api.nvim_win_close(win, true)
         local new_name = input("Copied session name: ")
         if new_name == nil then
-            vim.notify("repossession.nvim: copy cancelled", vim.log.levels.INFO)
+            vim.notify("Copy cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -310,7 +311,7 @@ local function repossession()
 
         if vim.fn.filereadable(new_session_file) == 1 then
             local target = new_name == "" and "default" or new_name
-            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -327,7 +328,7 @@ local function repossession()
         activate_shada(new_shada_file)
         activate_session(new_session_file, nil)
 
-        vim.notify("repossession.nvim: copied session to [" .. display_name .. "]", vim.log.levels.INFO)
+        vim.notify("Copied session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -335,14 +336,14 @@ local function repossession()
     local function rename_session(idx)
         local s = sessions[idx]
         if not s or s.git then
-            vim.notify("repossession.nvim: git sessions cannot be renamed", vim.log.levels.WARN)
+            vim.notify("Git sessions cannot be renamed", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
 
         vim.api.nvim_win_close(win, true)
         local new_name = input("Rename session to: ")
         if new_name == nil then
-            vim.notify("repossession.nvim: rename cancelled", vim.log.levels.INFO)
+            vim.notify("Rename cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -352,14 +353,14 @@ local function repossession()
         local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
         if vim.fn.filereadable(new_session_file) == 1 then
             local target = new_name == "" and "default" or new_name
-            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
 
         local ok, err = os.rename(s.session_file, new_session_file)
         if not ok then
-            vim.notify("repossession.nvim: failed to rename session file: " .. err, vim.log.levels.ERROR)
+            vim.notify("Failed to rename session file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -367,7 +368,7 @@ local function repossession()
         if vim.fn.filereadable(old_shada_file) == 1 then
             ok, err = os.rename(old_shada_file, new_shada_file)
             if not ok then
-                vim.notify("repossession.nvim: failed to rename shada file: " .. err, vim.log.levels.ERROR)
+                vim.notify("Failed to rename shada file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
                 rerender()
                 return
             end
@@ -377,9 +378,9 @@ local function repossession()
         if s.session_file == active_session_file then
             activate_shada(new_shada_file)
             activate_session(new_session_file)
-            vim.notify("repossession.nvim: renamed current session to [" .. display_name .. "]", vim.log.levels.INFO)
+            vim.notify("Renamed current session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         else
-            vim.notify("repossession.nvim: renamed session to [" .. display_name .. "]", vim.log.levels.INFO)
+            vim.notify("Renamed session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         end
         rerender()
     end
@@ -388,26 +389,26 @@ local function repossession()
     local function delete_session(idx)
         local s = sessions[idx]
         if not s or s.git then
-            vim.notify("repossession.nvim: git sessions cannot be deleted", vim.log.levels.WARN)
+            vim.notify("Git sessions cannot be deleted", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
 
         if s.session_file == active_session_file then
-            vim.notify("repossession.nvim: cannot delete the active session", vim.log.levels.WARN)
+            vim.notify("Cannot delete the active session", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
 
         vim.api.nvim_win_close(win, true)
         local confirm = input("Delete session [" .. s.display .. "]? (y/n): ")
         if confirm ~= "y" then
-            vim.notify("repossession.nvim: delete cancelled", vim.log.levels.INFO)
+            vim.notify("Delete cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             rerender()
             return
         end
 
         local ok, err = os.remove(s.session_file)
         if not ok then
-            vim.notify("repossession.nvim: failed to delete session file: " .. err, vim.log.levels.ERROR)
+            vim.notify("Failed to delete session file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -416,13 +417,13 @@ local function repossession()
         if vim.fn.filereadable(shada_file) == 1 then
             ok, err = os.remove(shada_file)
             if not ok then
-                vim.notify("repossession.nvim: failed to delete shada file: " .. err, vim.log.levels.ERROR)
+                vim.notify("Failed to delete shada file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
                 rerender()
                 return
             end
         end
 
-        vim.notify("repossession.nvim: deleted session [" .. s.display .. "]", vim.log.levels.INFO)
+        vim.notify("Deleted session [" .. s.display .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -446,8 +447,9 @@ function M.setup(user_opts)
     -- Guards
     if opts.git_sentinel == opts.local_sentinel then
         vim.notify(
-            "repossession.nvim: git_sentinel and local_sentinel must be different",
-            vim.log.levels.ERROR
+            "git_sentinel and local_sentinel must be different",
+            vim.log.levels.ERROR,
+            { title = "repossession.nvim" }
         )
         return
     end
