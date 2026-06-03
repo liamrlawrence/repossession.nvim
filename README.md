@@ -36,7 +36,8 @@ loaded session.
 | Key | Action |
 |---|---|
 | `<CR>` | Load the selected session |
-| `c` | Create a new session |
+| `n` | Create a new session |
+| `c` | Copy current session |
 | `r` | Rename the selected session |
 | `d` | Delete the selected session |
 | `q` / `<Esc>` | Close the picker |

@@ -205,6 +205,22 @@ local function repossession()
     end
 
 
+    -- Input that returns nil on <Esc>
+    local function input(prompt)
+        local CANCELLED = "\0"
+        local ok, result = pcall(vim.fn.input, { prompt = prompt, cancelreturn = CANCELLED })
+        if not ok or result == CANCELLED then return nil end
+        return result:gsub("\n", "")
+    end
+
+
+    local function get_new_session_path(new_name)
+        return new_name == ""
+            and (opts.tidy_sessions and scan_dir .. "/session.vim"                    or scan_dir .. "/.session.vim")
+            or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim" or scan_dir .. "/.session_" .. new_name .. ".vim")
+    end
+
+
     -- Picker functions
     local function load_session(idx)
         local s = sessions[idx]
@@ -238,12 +254,52 @@ local function repossession()
     end
 
 
-    local function create_session()
+    local function new_session()
         vim.api.nvim_win_close(win, true)
-        local new_name = vim.fn.input("New session name: "):gsub("\n", "")
-        local new_session_file = new_name == ""
-            and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
-            or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
+        local new_name = input("New session name: ")
+        if new_name == nil then
+            rerender()
+            return
+        end
+        local new_session_file = get_new_session_path(new_name)
+
+        if vim.fn.filereadable(new_session_file) == 1 then
+            local target = new_name == "" and "default" or new_name
+            vim.notify("repossession.nvim: session [" .. target .. "] already exists", vim.log.levels.WARN)
+            rerender()
+            return
+        end
+
+        if opts.tidy_sessions then
+            local dir = vim.fn.fnamemodify(new_session_file, ":h")
+            ensure_tidy_dir(dir)
+        end
+
+        local display_name = new_name == "" and "default" or new_name
+        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        activate_shada(new_shada_file)
+        activate_session(new_session_file)
+
+        -- Wipe all buffers to start fresh
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(b) then
+                pcall(vim.api.nvim_buf_delete, b, { force = true })
+            end
+        end
+
+        vim.notify("repossession.nvim: created blank session [" .. display_name .. "]", vim.log.levels.INFO)
+        rerender()
+    end
+
+
+    local function copy_session()
+        vim.api.nvim_win_close(win, true)
+        local new_name = input("Copied session name: ")
+        if new_name == nil then
+            rerender()
+            return
+        end
+        local new_session_file = get_new_session_path(new_name)
 
         if vim.fn.filereadable(new_session_file) == 1 then
             local target = new_name == "" and "default" or new_name
@@ -264,7 +320,7 @@ local function repossession()
         activate_shada(new_shada_file)
         activate_session(new_session_file, nil)
 
-        vim.notify("repossession.nvim: created session [" .. display_name .. "]", vim.log.levels.INFO)
+        vim.notify("repossession.nvim: copied session to [" .. display_name .. "]", vim.log.levels.INFO)
         rerender()
     end
 
@@ -277,7 +333,7 @@ local function repossession()
         end
 
         vim.api.nvim_win_close(win, true)
-        local new_name = vim.fn.input("Rename session to: "):gsub("\n", "")
+        local new_name = input("Rename session to: ")
         local new_session_file = new_name == ""
             and (opts.tidy_sessions and scan_dir .. "/session.vim"                        or scan_dir .. "/.session.vim")
             or  (opts.tidy_sessions and scan_dir .. "/session_" .. new_name .. ".vim"     or scan_dir .. "/.session_" .. new_name .. ".vim")
@@ -332,7 +388,7 @@ local function repossession()
         end
 
         vim.api.nvim_win_close(win, true)
-        local confirm = vim.fn.input("Delete session [" .. s.display .. "]? (y/n): ")
+        local confirm = input("Delete session [" .. s.display .. "]? (y/n): ")
         if confirm ~= "y" then
             vim.notify("repossession.nvim: delete cancelled", vim.log.levels.INFO)
             rerender()
@@ -364,8 +420,10 @@ local function repossession()
     -- Keymaps
     vim.keymap.set("n", "q",     function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<C-c>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "<CR>",  function() load_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "c",     function() create_session()                                    end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "n",     function() new_session()                                       end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "c",     function() copy_session()                                      end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
 end
