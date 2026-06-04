@@ -441,6 +441,66 @@ end
 
 
 
+local function session_init()
+    local session_file = nil
+    local shada_file = opts.global_shada_file
+    local sentinel_arg = nil
+
+    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
+    local in_git = vim.v.shell_error == 0
+
+    local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
+    local git_sentinel_arg = arg0 == opts.git_sentinel
+    local local_sentinel_arg = arg0 ~= nil
+        and vim.startswith(arg0, opts.local_sentinel)
+        and vim.fn.filereadable(arg0) == 0
+        and vim.fn.isdirectory(arg0) == 0
+
+    if in_git and git_sentinel_arg then
+        -- 'nvim ,' was run inside of a git project: git session, git shada
+        session_file = git_root .. "/" .. opts.git_session_file
+        shada_file   = git_root .. "/" .. opts.git_shada_file
+        sentinel_arg = arg0
+    elseif local_sentinel_arg then
+        -- 'nvim =' was run: local session, local shada
+        local session_name = assert(arg0):sub(#opts.local_sentinel + 1)
+        local suffix       = session_name == "" and "" or "_" .. session_name
+
+        if opts.tidy_sessions then
+            -- store in a hashed directory under tidy_dir
+            local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
+            ensure_tidy_dir(dir)
+            session_file = dir .. "/session" .. suffix .. ".vim"
+            shada_file   = dir .. "/session" .. suffix .. ".shada"
+        else
+            -- store in cwd with a dot prefix
+            session_file = cwd .. "/.session" .. suffix .. ".vim"
+            shada_file   = cwd .. "/.session" .. suffix .. ".shada"
+        end
+
+        sentinel_arg = arg0
+    else
+        -- no session, global shada
+    end
+
+    -- Load shada
+    activate_shada(shada_file)
+
+    -- Load session
+    if session_file then
+        activate_session(session_file, git_sentinel_arg and git_root or nil)
+
+        -- Wipe sentinel buffer after session has loaded
+        if sentinel_arg then
+            local sentinel_buf = vim.fn.bufnr(sentinel_arg)
+            if sentinel_buf ~= -1 then
+                vim.api.nvim_buf_delete(sentinel_buf, { force = true })
+            end
+        end
+    end
+end
+
+
 function M.setup(user_opts)
     opts = vim.tbl_deep_extend("force", M.defaults, user_opts or {})
 
@@ -458,68 +518,32 @@ function M.setup(user_opts)
     vim.api.nvim_create_user_command("Repossession", repossession,
         { desc = "Browse, load, and modify available sessions for the current context" })
 
+    -- Helpers
+    local function lazy_busy()
+        local ok, view = pcall(require, "lazy.view")
+        return ok and view.visible ~= nil and view.visible() or false
+    end
+
     -- Initialize
     vim.api.nvim_create_autocmd("VimEnter", {
         desc = "Initialize vim session",
         group = repossession_group,
         nested = true,
         callback = function()
-            local session_file = nil
-            local shada_file = opts.global_shada_file
-            local sentinel_arg = nil
-
-            local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
-            local in_git = vim.v.shell_error == 0
-
-            local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
-            local git_sentinel_arg = arg0 == opts.git_sentinel
-            local local_sentinel_arg = arg0 ~= nil
-                and vim.startswith(arg0, opts.local_sentinel)
-                and vim.fn.filereadable(arg0) == 0
-                and vim.fn.isdirectory(arg0) == 0
-
-            if in_git and git_sentinel_arg then
-                -- 'nvim ,' was run inside of a git project: git session, git shada
-                session_file = git_root .. "/" .. opts.git_session_file
-                shada_file   = git_root .. "/" .. opts.git_shada_file
-                sentinel_arg = arg0
-            elseif local_sentinel_arg then
-                -- 'nvim =' was run: local session, local shada
-                local session_name = assert(arg0):sub(#opts.local_sentinel + 1)
-                local suffix       = session_name == "" and "" or "_" .. session_name
-
-                if opts.tidy_sessions then
-                    -- store in a hashed directory under tidy_dir
-                    local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
-                    ensure_tidy_dir(dir)
-                    session_file = dir .. "/session" .. suffix .. ".vim"
-                    shada_file   = dir .. "/session" .. suffix .. ".shada"
-                else
-                    -- store in cwd with a dot prefix
-                    session_file = cwd .. "/.session" .. suffix .. ".vim"
-                    shada_file   = cwd .. "/.session" .. suffix .. ".shada"
-                end
-
-                sentinel_arg = arg0
-            else
-                -- no session, global shada
+            if not lazy_busy() then
+                session_init()
+                return
             end
 
-            -- Load shada
-            activate_shada(shada_file)
-
-            -- Load session
-            if session_file then
-                activate_session(session_file, git_root and git_sentinel_arg or nil)
-
-                -- Wipe sentinel buffer after session has loaded
-                if sentinel_arg then
-                    local sentinel_buf = vim.fn.bufnr(sentinel_arg)
-                    if sentinel_buf ~= -1 then
-                        vim.api.nvim_buf_delete(sentinel_buf, { force = true })
-                    end
+            -- lazy is showing its float; wait for it to close
+            local timer = assert(vim.uv.new_timer())
+            timer:start(100, 100, vim.schedule_wrap(function()
+                if not lazy_busy() then
+                    timer:stop()
+                    timer:close()
+                    session_init()
                 end
-            end
+            end))
         end,
     })
 end
