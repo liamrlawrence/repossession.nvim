@@ -18,6 +18,22 @@ M.defaults = {
 local opts = M.defaults
 
 
+local function get_session_name(session_file)
+    local git_dir = session_file:match("(.-)/%.git/.*")
+    if git_dir then
+        return "git:" .. git_dir
+    end
+
+    local name = session_file:match("session_(.-)%.vim$")
+              or session_file:match("%.session_(.-)%.vim$")
+
+    if not name or name == "" then
+        return "(default)"
+    end
+
+    return name
+end
+
 
 local function ensure_tidy_dir(dir)
     local sessionpath_file = dir .. "/SESSIONPATH"
@@ -101,8 +117,6 @@ local function scan_sessions()
         local git_session = git_root .. "/" .. opts.git_session_file
         if vim.fn.filereadable(git_session) == 1 then
             table.insert(sessions, {
-                label        = "[git]   " .. git_root,
-                display      = "git:" .. git_root,
                 session_file = git_session,
                 git          = true,
                 git_root     = git_root,
@@ -113,7 +127,6 @@ local function scan_sessions()
     -- Find local sessions
     local scan_dir = opts.tidy_sessions and opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8) or cwd
     local file_pattern = opts.tidy_sessions and "^session.*%.vim$"    or "^%.session.*%.vim$"
-    local name_capture = opts.tidy_sessions and "^session_(.+)%.vim$" or "^%.session_(.+)%.vim$"
 
     local handle = vim.uv.fs_scandir(scan_dir)
     if handle then
@@ -121,11 +134,7 @@ local function scan_sessions()
             local fname, ftype = vim.uv.fs_scandir_next(handle)
             if not fname then break end
             if ftype == "file" and fname:match(file_pattern) then
-                local session_name = fname:match(name_capture)
-                local prefix_label = in_git and "[local] " or ""
                 table.insert(sessions, {
-                    label        = prefix_label .. (session_name or "(default)"),
-                    display      = session_name or "(default)",
                     session_file = scan_dir .. "/" .. fname,
                     git          = false,
                     git_root     = nil,
@@ -134,7 +143,13 @@ local function scan_sessions()
         end
     end
 
-    table.sort(sessions, function(a, b) return a.label < b.label end)
+    table.sort(sessions, function(a, b)
+        if a.git ~= b.git then
+            return a.git
+        end
+        return get_session_name(a.session_file) < get_session_name(b.session_file)
+    end)
+
     return sessions, scan_dir
 end
 
@@ -144,7 +159,8 @@ local function open_picker(sessions)
     local active_idx = 1
     for i, s in ipairs(sessions) do
         local marker = s.session_file == active_session_file and "~ " or "  "
-        table.insert(lines, string.format(" %d  %s%s", i, marker, s.display))
+        local session_name = get_session_name(s.session_file)
+        table.insert(lines, string.format(" %d  %s%s", i, marker, session_name))
         if s.session_file == active_session_file then
             active_idx = i
         end
@@ -251,13 +267,12 @@ local function repossession()
 
         vim.api.nvim_win_close(win, true)
 
-        -- Load shada
+        local session_name = get_session_name(s.session_file)
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
         activate_shada(shada_file)
-
-        -- Load session
         activate_session(s.session_file, s.git_root)
-        vim.notify("Loaded session [" .. s.display .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+
+        vim.notify("Loaded session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
 
 
@@ -269,11 +284,11 @@ local function repossession()
             rerender()
             return
         end
-        local new_session_file = get_new_session_path(new_name)
 
+        local new_session_file = get_new_session_path(new_name)
+        local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
-            local target = new_name == "" and "default" or new_name
-            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
+            vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -283,7 +298,6 @@ local function repossession()
             ensure_tidy_dir(dir)
         end
 
-        local display_name = new_name == "" and "default" or new_name
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
         activate_shada(new_shada_file)
         activate_session(new_session_file)
@@ -295,7 +309,7 @@ local function repossession()
             end
         end
 
-        vim.notify("Created new session [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        vim.notify("Created new session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -308,11 +322,11 @@ local function repossession()
             rerender()
             return
         end
-        local new_session_file = get_new_session_path(new_name)
 
+        local new_session_file = get_new_session_path(new_name)
+        local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
-            local target = new_name == "" and "default" or new_name
-            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
+            vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -322,14 +336,13 @@ local function repossession()
             ensure_tidy_dir(dir)
         end
 
-        local display_name = new_name == "" and "default" or new_name
         safe_mksession(new_session_file)
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
         activate_shada(new_shada_file)
         activate_session(new_session_file, nil)
 
-        vim.notify("Copied session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        vim.notify("Copied session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -348,13 +361,11 @@ local function repossession()
             rerender()
             return
         end
-        local new_session_file = get_new_session_path(new_name)
 
-        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
-        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
+        local new_session_file = get_new_session_path(new_name)
+        local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
-            local target = new_name == "" and "default" or new_name
-            vim.notify("Session [" .. target .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
+            vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
             rerender()
             return
         end
@@ -366,6 +377,8 @@ local function repossession()
             return
         end
 
+        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
         if vim.fn.filereadable(old_shada_file) == 1 then
             ok, err = os.rename(old_shada_file, new_shada_file)
             if not ok then
@@ -375,13 +388,12 @@ local function repossession()
             end
         end
 
-        local display_name = new_name == "" and "default" or new_name
         if s.session_file == active_session_file then
             activate_shada(new_shada_file)
             activate_session(new_session_file)
-            vim.notify("Renamed current session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+            vim.notify("Renamed current session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         else
-            vim.notify("Renamed session to [" .. display_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+            vim.notify("Renamed session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         end
         rerender()
     end
@@ -400,7 +412,8 @@ local function repossession()
         end
 
         vim.api.nvim_win_close(win, true)
-        local confirm = input("Delete session [" .. s.display .. "]? (y/n): ")
+        local session_name = get_session_name(s.session_file)
+        local confirm = input("Delete session [" .. session_name .. "]? (y/n): ")
         if confirm ~= "y" then
             vim.notify("Delete cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             rerender()
@@ -424,7 +437,7 @@ local function repossession()
             end
         end
 
-        vim.notify("Deleted session [" .. s.display .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        vim.notify("Deleted session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
