@@ -311,11 +311,9 @@ local function repossession(opts_cmd)
 
 
     local function new_session()
-        vim.api.nvim_win_close(win, true)
         local new_name = input("New session name: ")
         if new_name == nil then
             vim.notify("New session cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
-            rerender()
             return
         end
 
@@ -323,9 +321,10 @@ local function repossession(opts_cmd)
         local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
             vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
-            rerender()
             return
         end
+
+        vim.api.nvim_win_close(win, true)
 
         if opts.tidy_sessions then
             local dir = vim.fn.fnamemodify(new_session_file, ":h")
@@ -344,16 +343,13 @@ local function repossession(opts_cmd)
         end
 
         vim.notify("Created new session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
-        rerender()
     end
 
 
     local function copy_session()
-        vim.api.nvim_win_close(win, true)
         local new_name = input("Copied session name: ")
         if new_name == nil then
             vim.notify("Copy cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
-            rerender()
             return
         end
 
@@ -361,9 +357,10 @@ local function repossession(opts_cmd)
         local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
             vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
-            rerender()
             return
         end
+
+        vim.api.nvim_win_close(win, true)
 
         if opts.tidy_sessions then
             local dir = vim.fn.fnamemodify(new_session_file, ":h")
@@ -387,11 +384,9 @@ local function repossession(opts_cmd)
             return
         end
 
-        vim.api.nvim_win_close(win, true)
         local new_name = input("Rename session to: ")
         if new_name == nil then
             vim.notify("Rename cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
-            rerender()
             return
         end
 
@@ -399,14 +394,14 @@ local function repossession(opts_cmd)
         local session_name = get_session_name(new_session_file)
         if vim.fn.filereadable(new_session_file) == 1 then
             vim.notify("Session [" .. session_name .. "] already exists", vim.log.levels.WARN, { title = "repossession.nvim" })
-            rerender()
             return
         end
+
+        vim.api.nvim_win_close(win, true)
 
         local ok, err = os.rename(s.session_file, new_session_file)
         if not ok then
             vim.notify("Failed to rename session file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
-            rerender()
             return
         end
 
@@ -416,7 +411,6 @@ local function repossession(opts_cmd)
             ok, err = os.rename(old_shada_file, new_shada_file)
             if not ok then
                 vim.notify("Failed to rename shada file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
-                rerender()
                 return
             end
         end
@@ -448,19 +442,18 @@ local function repossession(opts_cmd)
             return
         end
 
-        vim.api.nvim_win_close(win, true)
         local session_name = get_session_name(s.session_file)
         local confirm = input("Delete session [" .. session_name .. "]? (y/n): ")
-        if confirm ~= "y" then
+        if confirm == nil or confirm:lower() ~= "y" then
             vim.notify("Delete cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
-            rerender()
             return
         end
+
+        vim.api.nvim_win_close(win, true)
 
         local ok, err = os.remove(s.session_file)
         if not ok then
             vim.notify("Failed to delete session file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
-            rerender()
             return
         end
 
@@ -469,7 +462,6 @@ local function repossession(opts_cmd)
             ok, err = os.remove(shada_file)
             if not ok then
                 vim.notify("Failed to delete shada file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
-                rerender()
                 return
             end
         end
