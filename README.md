@@ -31,7 +31,8 @@ per session.
 
 | Command | Description |
 |---|---|
-| `:Repossession` | Open a session picker for the current context |
+| `:Repossession` | Open the session picker for the current context |
+| `:Repossession last` | Toggle to the last opened session |
 
 The picker lists the git session (if inside a git repo) and all local sessions
 for the current directory. Session saving transfers automatically to the newly
@@ -88,7 +89,8 @@ return {
     config = function()
         require("repossession").setup()
 
-        vim.keymap.set("n", "<leader>rp", "<cmd>Repossession<cr>", { desc = "Session manager" })
+        vim.keymap.set("n", "<leader>rp", "<cmd>Repossession<cr>",      { desc = "Session manager" })
+        vim.keymap.set("n", "<leader>rl", "<cmd>Repossession last<cr>", { desc = "Toggle to last session" })
     end,
 }
 ```

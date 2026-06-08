@@ -2,6 +2,9 @@ local M = {}
 local cwd = vim.fn.getcwd()
 local repossession_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
 local active_session_file = nil
+local active_git_root = nil
+local last_session_file = nil
+local last_git_root = nil
 local picker_win_id = nil
 
 
@@ -72,8 +75,13 @@ local function activate_shada(shada_file)
 end
 
 
-local function activate_session(session_file, git_root)
+local function activate_session(session_file, git_root, track_history)
+    if track_history ~= false then
+        last_session_file = active_session_file
+        last_git_root = active_git_root
+    end
     active_session_file = session_file
+    active_git_root = git_root
 
     vim.api.nvim_clear_autocmds({ group = repossession_group })
     vim.api.nvim_create_autocmd({
@@ -216,7 +224,10 @@ local function get_unsaved_buffers()
 end
 
 
-local function repossession()
+local function repossession(opts_cmd)
+    local args = opts_cmd and opts_cmd.fargs or {}
+
+    -- Scan for sessions
     local sessions, scan_dir = scan_sessions()
     if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
         vim.api.nvim_set_current_win(picker_win_id)
@@ -228,6 +239,29 @@ local function repossession()
         return
     end
 
+    -- Subcommand: last
+    if args[1] == "last" then
+        if not last_session_file then
+            vim.notify("No previous session", vim.log.levels.WARN, { title = "repossession.nvim" })
+            return
+        end
+
+        local unsaved = get_unsaved_buffers()
+        if #unsaved > 0 then
+            vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
+            return
+        end
+
+        local last_session_name = get_session_name(last_session_file)
+        local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
+        activate_shada(last_shada_file)
+        activate_session(last_session_file, last_git_root)
+        vim.notify("Toggled to session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        return
+    end
+
+
+    -- Session picker
     local buf, win = open_picker(sessions)
 
 
@@ -300,7 +334,7 @@ local function repossession()
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
         activate_shada(new_shada_file)
-        activate_session(new_session_file)
+        activate_session(new_session_file, nil)
 
         -- Wipe all buffers to start fresh
         for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -336,9 +370,8 @@ local function repossession()
             ensure_tidy_dir(dir)
         end
 
-        safe_mksession(new_session_file)
-
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        safe_mksession(new_session_file)
         activate_shada(new_shada_file)
         activate_session(new_session_file, nil)
 
@@ -388,9 +421,13 @@ local function repossession()
             end
         end
 
+        if s.session_file == last_session_file then
+            last_session_file = new_session_file
+        end
+
         if s.session_file == active_session_file then
             activate_shada(new_shada_file)
-            activate_session(new_session_file)
+            activate_session(new_session_file, nil, false)
             vim.notify("Renamed current session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         else
             vim.notify("Renamed session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -435,6 +472,10 @@ local function repossession()
                 rerender()
                 return
             end
+        end
+
+        if s.session_file == last_session_file then
+            last_session_file, last_git_root = nil, nil
         end
 
         vim.notify("Deleted session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -529,8 +570,18 @@ function M.setup(user_opts)
     end
 
     -- Commands
-    vim.api.nvim_create_user_command("Repossession", repossession,
-        { desc = "Browse, load, and modify available sessions for the current context" })
+    vim.api.nvim_create_user_command("Repossession", repossession, {
+        desc = "Browse, load, and modify available sessions for the current context",
+        nargs = "?",
+        complete = function(ArgLead, CmdLine, CursorPos)
+            if CmdLine:match("^%s*Repossession%s+%S*$") == nil then
+                return {}
+            end
+            return vim.tbl_filter(function(c)
+                return vim.startswith(c, ArgLead)
+            end, { "last" })
+        end,
+    })
 
     -- Helpers
     local function lazy_busy()
