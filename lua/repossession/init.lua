@@ -188,6 +188,18 @@ local function open_picker(sessions)
 end
 
 
+local function get_unsaved_buffers()
+    local unsaved = {}
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified then
+            local name = vim.api.nvim_buf_get_name(b)
+            table.insert(unsaved, name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]")
+        end
+    end
+    return unsaved
+end
+
+
 local function repossession()
     local sessions, scan_dir = scan_sessions()
     if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
@@ -231,23 +243,12 @@ local function repossession()
         local s = sessions[idx]
         if not s then return end
 
-        -- Check for unsaved buffers
-        local unsaved = {}
-        for _, b in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_loaded(b)
-                and vim.bo[b].modified then
-                local name = vim.api.nvim_buf_get_name(b)
-                table.insert(unsaved, name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]")
-            end
-        end
+        local unsaved = get_unsaved_buffers()
         if #unsaved > 0 then
-            vim.notify(
-                "Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]",
-                vim.log.levels.WARN,
-                { title = "repossession.nvim" }
-            )
+            vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
+
         vim.api.nvim_win_close(win, true)
 
         -- Load shada
