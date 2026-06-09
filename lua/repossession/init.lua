@@ -16,6 +16,7 @@ M.defaults = {
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
+    ignore_filetypes  = {},
 }
 
 local opts = M.defaults
@@ -84,6 +85,13 @@ local function activate_session(session_file, git_root, track_history)
     active_git_root = git_root
 
     vim.api.nvim_clear_autocmds({ group = repossession_group })
+
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.tbl_contains(opts.ignore_filetypes, vim.bo[b].filetype) then
+            pcall(vim.api.nvim_buf_delete, b, { force = true })
+        end
+    end
+
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
         "WinNew", "WinClosed",

@@ -51,33 +51,6 @@ loaded session.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
 
-## Storage location
-
-By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
-(Neovim's data directory by default), in a folder named after a hash of the cwd:
-
-```
-~/.local/share/nvim/repossession/<hash>/
-├── SESSIONPATH        (the cwd this hash corresponds to)
-├── session.vim
-├── session.shada
-├── session_foo.vim
-└── session_foo.shada
-```
-
-All sessions launched from the same directory share one hash folder. The
-`SESSIONPATH` file records the originating path so the folder can be identified
-later. This keeps your working directories free of session files entirely.
-
-Set `tidy_sessions = false` to instead write local sessions to the current
-working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
-`.shada` counterparts).
-
-Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
-configured independently, so the global shada can be pinned to its own location
-regardless of where tidied sessions are stored.
-
-
 ## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -109,6 +82,53 @@ require("repossession").setup({
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
+    ignore_filetypes  = {},
+})
+```
+
+----
+
+### Storage location
+
+By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
+(Neovim's data directory by default), in a folder named after a hash of the cwd:
+
+```
+~/.local/share/nvim/repossession/<hash>/
+├── SESSIONPATH        (the cwd this hash corresponds to)
+├── session.vim
+├── session.shada
+├── session_foo.vim
+└── session_foo.shada
+```
+
+All sessions launched from the same directory share one hash folder. The
+`SESSIONPATH` file records the originating path so the folder can be identified
+later. This keeps your working directories free of session files entirely.
+
+Set `tidy_sessions = false` to instead write local sessions to the current
+working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
+`.shada` counterparts).
+
+Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
+configured independently, so the global shada can be pinned to its own location
+regardless of where tidied sessions are stored.
+
+----
+
+### ignore_filetypes
+
+Plugins that use named scratch buffers, like neo-tree and similar, don't survive
+a session round-trip cleanly. `:mksession` records their buffer, and restoring
+it collides with the live buffer of the same name, raising `E95: Buffer with
+this name already exists`.
+
+Set `ignore_filetypes` to the filetypes of such buffers. Any matching buffer is
+wiped before a session is restored, so there's nothing to collide with.
+
+```lua
+require("repossession").setup({
+    ignore_filetypes = { "neo-tree" },
 })
 ```
 
