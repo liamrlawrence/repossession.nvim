@@ -256,7 +256,7 @@ local function repossession(opts_cmd)
         local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
         activate_shada(last_shada_file)
         activate_session(last_session_file, last_git_root)
-        vim.notify("Toggled to session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
 

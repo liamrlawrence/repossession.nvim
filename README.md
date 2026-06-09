@@ -115,6 +115,8 @@ require("repossession").setup({
 
 ## Recommendations
 
+### gitignore
+
 If using `tidy_sessions = false`, add repossession's local session files to your
 global gitignore so they do not show up as untracked files in git projects:
 
@@ -125,6 +127,31 @@ echo ".session*.shada" >> ~/.config/git/ignore
 
 With the default `tidy_sessions = true` this is unnecessary, since nothing is
 written to your working directories.
+
+----
+
+### sessionoptions
+
+Sessions are created with `:mksession`, which only saves what `'sessionoptions'`
+tells it to. A reasonable value for use with repossession:
+
+```lua
+vim.opt.sessionoptions = "blank,curdir,folds,help,tabpages,winsize,terminal"
+```
+
+Notes on the choices:
+
+- **`buffers` is omitted here** so only buffers visible in a window or tab are
+  restored, rather than every hidden background buffer. Add `buffers` back if you
+  rely on cycling through all previously-opened buffers (`:bnext`/`:bprevious`)
+  after a restore.
+- **`options` is intentionally omitted.** It saves global and local option values
+  and mappings into the session file, which frequently clobbers your current
+  config on restore and leads to confusing, hard-to-debug states. Neovim already
+  excludes it from the default; keep it out.
+
+This is only a suggestion — repossession works with any `'sessionoptions'`. See
+`:help 'sessionoptions'` for the full list.
 
 
 ## License
