@@ -77,6 +77,21 @@ end
 
 
 local function activate_session(session_file, git_root, track_history)
+    if active_session_file then
+        vim.api.nvim_exec_autocmds("User", {
+            pattern = "RepossessionSwitchPre",
+            data = {
+                old_session = active_session_file,
+                new_session = session_file,
+            },
+        })
+
+        -- Deterministic final save of the old session, now that Pre
+        -- handlers have cleaned up. Overwrites any dirty autosave that
+        -- fired earlier (e.g. from the picker window closing).
+        safe_mksession(active_session_file)
+    end
+
     if track_history ~= false then
         last_session_file = active_session_file
         last_git_root = active_git_root
@@ -120,6 +135,15 @@ local function activate_session(session_file, git_root, track_history)
     else
         vim.fn.chdir(cwd)
     end
+
+    vim.api.nvim_exec_autocmds("User", {
+        pattern = "RepossessionSwitchPost",
+        data = {
+            session_file = session_file,
+            session_name = get_session_name(session_file),
+            git_root     = git_root,
+        },
+    })
 end
 
 

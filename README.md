@@ -51,6 +51,33 @@ loaded session.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
 
+## Events
+
+repossession fires `User` autocmd events around every session switch, so other
+plugins and config can react.
+
+| Event | When it fires |
+|---|---|
+| `RepossessionSwitchPre` | Before a switch, while the old session is still active |
+| `RepossessionSwitchPost` | After the new session has loaded and the cwd has changed |
+
+Both events carry a `data` table:
+
+| Event | Field | Value |
+|---|---|---|
+| `RepossessionSwitchPre` | `old_session` | Path of the outgoing session file |
+| | `new_session` | Path of the incoming session file |
+| `RepossessionSwitchPost` | `session_file` | Path of the loaded session file |
+| | `session_name` | Display name of the loaded session |
+| | `git_root` | Git root of the session, or `nil` for local sessions |
+
+Pre handlers run synchronously, and the outgoing session is saved one final
+time after they complete — making Pre the right place to close windows and
+delete buffers that shouldn't be recorded in the session file. Pre only fires
+when there is an active session to switch away from; the initial load at
+startup fires Post alone.
+
+
 ## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
