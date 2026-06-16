@@ -76,7 +76,11 @@ local function activate_shada(shada_file)
 end
 
 
-local function activate_session(session_file, git_root, track_history)
+local function activate_session(session_file, git_root, args)
+    args = args or {}
+    local track_history = args.track_history
+    local flush_path = args.flush_path or active_session_file
+
     if active_session_file then
         vim.api.nvim_exec_autocmds("User", {
             pattern = "RepossessionSwitchPre",
@@ -86,10 +90,10 @@ local function activate_session(session_file, git_root, track_history)
             },
         })
 
-        -- Deterministic final save of the old session, now that Pre
-        -- handlers have cleaned up. Overwrites any dirty autosave that
-        -- fired earlier (e.g. from the picker window closing).
-        safe_mksession(active_session_file)
+        -- Deterministic final save of the outgoing session, after Pre
+        -- handlers have cleaned up, overwriting any autosave that fired
+        -- during teardown (Win/Buf events around the switch).
+        safe_mksession(flush_path)
     end
 
     if track_history ~= false then
@@ -453,7 +457,10 @@ local function repossession(opts_cmd)
 
         if s.session_file == active_session_file then
             activate_shada(new_shada_file)
-            activate_session(new_session_file, nil, false)
+            activate_session(new_session_file, nil, {
+                track_history = false,
+                flush_path = new_session_file,
+            })
             vim.notify("Renamed current session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         else
             vim.notify("Renamed session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
