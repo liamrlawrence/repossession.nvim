@@ -41,10 +41,10 @@ loaded session.
 | Key | Action |
 |---|---|
 | `<CR>` | Load the selected session |
-| `n` | Create a new session |
-| `c` | Copy current session |
+| `c` | Copy the selected session |
 | `r` | Rename the selected session |
 | `d` | Delete the selected session |
+| `n` | Create a new session |
 | `q` / `<Esc>` | Close the picker |
 
 - Git sessions cannot be renamed or deleted from the picker.
@@ -98,7 +98,7 @@ return {
 
 ## Configuration
 
-Default values:
+### Default values
 
 ```lua
 require("repossession").setup({
