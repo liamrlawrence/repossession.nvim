@@ -120,11 +120,25 @@ local function activate_session(session_file, git_root, args)
         desc = "Save vim session",
         group = repossession_group,
         callback = function(ev)
-            -- Ignore floating windows (hover docs, telescope, etc.)
-            if ev.event ~= "VimLeavePre" then
-                local win = vim.api.nvim_get_current_win()
-                if vim.api.nvim_win_get_config(win).relative ~= "" then return end
+            -- On exit, fire the switch-pre hook so autocmds can
+            -- clean up ephemeral UI before the final save
+            if ev.event == "VimLeavePre" then
+                if active_session_file then
+                    vim.api.nvim_exec_autocmds("User", {
+                        pattern = "RepossessionSwitchPre",
+                        data = {
+                            old_session = active_session_file,
+                            new_session = nil,
+                        },
+                    })
+                end
+                safe_mksession(session_file)
+                return
             end
+
+            -- Ignore floating windows (hover docs, telescope, etc.)
+            local win = vim.api.nvim_get_current_win()
+            if vim.api.nvim_win_get_config(win).relative ~= "" then return end
 
             safe_mksession(session_file)
         end,
