@@ -241,6 +241,7 @@ local function open_picker(sessions)
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
+    vim.bo[buf].bufhidden = "wipe"
 
     local win = vim.api.nvim_open_win(buf, true, {
         relative  = "editor",
@@ -600,6 +601,7 @@ local function session_init()
             local sentinel_buf = vim.fn.bufnr(sentinel_arg)
             if sentinel_buf ~= -1 then
                 vim.api.nvim_buf_delete(sentinel_buf, { force = true })
+                pcall(function() vim.cmd("%argdelete") end)
             end
         end
     end
