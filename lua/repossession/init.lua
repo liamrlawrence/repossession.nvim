@@ -115,6 +115,14 @@ local function activate_session(session_file, git_root, args)
     active_session_file = session_file
     active_git_root = git_root
 
+    if args.wipe_buffers then
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(b) then
+                pcall(vim.api.nvim_buf_delete, b, { force = true })
+            end
+        end
+    end
+
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
         "WinNew", "WinClosed",
@@ -311,7 +319,7 @@ local function repossession(opts_cmd)
         local last_session_name = get_session_name(last_session_file)
         local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
         activate_shada(last_shada_file)
-        activate_session(last_session_file, last_git_root)
+        activate_session(last_session_file, last_git_root, { wipe_buffers = true })
         vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
@@ -360,7 +368,7 @@ local function repossession(opts_cmd)
         local session_name = get_session_name(s.session_file)
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
         activate_shada(shada_file)
-        activate_session(s.session_file, s.git_root)
+        activate_session(s.session_file, s.git_root, { wipe_buffers = true })
 
         vim.notify("Loaded session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
@@ -389,14 +397,8 @@ local function repossession(opts_cmd)
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
         activate_shada(new_shada_file)
-        activate_session(new_session_file, nil)
-
-        -- Wipe all buffers to start fresh
-        for _, b in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_valid(b) then
-                pcall(vim.api.nvim_buf_delete, b, { force = true })
-            end
-        end
+        activate_session(new_session_file, nil, { wipe_buffers = true })
+        safe_mksession(new_session_file)
 
         vim.notify("Created new session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
