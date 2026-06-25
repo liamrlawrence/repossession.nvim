@@ -123,6 +123,18 @@ local function activate_session(session_file, git_root, args)
         end
     end
 
+    -- Setup session
+    if vim.fn.filereadable(session_file) == 1 then
+        vim.cmd("source " .. vim.fn.fnameescape(session_file))
+    end
+
+    if git_root then
+        vim.fn.chdir(git_root)
+    else
+        vim.fn.chdir(cwd)
+    end
+
+    -- Enable automated save
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
         "WinNew", "WinClosed",
@@ -156,16 +168,6 @@ local function activate_session(session_file, git_root, args)
             safe_mksession(session_file)
         end,
     })
-
-    if vim.fn.filereadable(session_file) == 1 then
-        vim.cmd("source " .. vim.fn.fnameescape(session_file))
-    end
-
-    if git_root then
-        vim.fn.chdir(git_root)
-    else
-        vim.fn.chdir(cwd)
-    end
 
     vim.api.nvim_exec_autocmds("User", {
         pattern = "RepossessionSwitchPost",
