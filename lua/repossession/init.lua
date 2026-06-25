@@ -68,6 +68,15 @@ local function safe_mksession(session_file)
 end
 
 
+local function drop_ignored_buffers()
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.tbl_contains(opts.ignore_filetypes, vim.bo[b].filetype) then
+            pcall(vim.api.nvim_buf_delete, b, { force = true })
+        end
+    end
+end
+
+
 local function activate_shada(shada_file)
     vim.opt.shadafile = shada_file
     if vim.fn.filereadable(shada_file) == 1 then
@@ -81,6 +90,8 @@ local function activate_session(session_file, git_root, args)
     local track_history = args.track_history
     local flush_path = args.flush_path or active_session_file
 
+    vim.api.nvim_clear_autocmds({ group = repossession_group })
+
     if active_session_file then
         vim.api.nvim_exec_autocmds("User", {
             pattern = "RepossessionSwitchPre",
@@ -90,9 +101,10 @@ local function activate_session(session_file, git_root, args)
             },
         })
 
-        -- Deterministic final save of the outgoing session, after Pre
-        -- handlers have cleaned up, overwriting any autosave that fired
-        -- during teardown (Win/Buf events around the switch).
+        -- Drop ignored-filetype buffers so they are not written into the
+        -- outgoing session, then do a deterministic final save after Pre
+        -- handlers have cleaned up ephemeral UI.
+        drop_ignored_buffers()
         safe_mksession(flush_path)
     end
 
@@ -102,14 +114,6 @@ local function activate_session(session_file, git_root, args)
     end
     active_session_file = session_file
     active_git_root = git_root
-
-    vim.api.nvim_clear_autocmds({ group = repossession_group })
-
-    for _, b in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.tbl_contains(opts.ignore_filetypes, vim.bo[b].filetype) then
-            pcall(vim.api.nvim_buf_delete, b, { force = true })
-        end
-    end
 
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
@@ -132,6 +136,7 @@ local function activate_session(session_file, git_root, args)
                         },
                     })
                 end
+                drop_ignored_buffers()
                 safe_mksession(session_file)
                 return
             end
