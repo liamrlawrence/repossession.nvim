@@ -339,10 +339,10 @@ local function repossession(opts_cmd)
     end
 
 
-    local function input(prompt)
+    local function input(prompt, default)
         -- Input that returns nil on <Esc>
         local CANCELLED = "\0"
-        local ok, result = pcall(vim.fn.input, { prompt = prompt, cancelreturn = CANCELLED })
+        local ok, result = pcall(vim.fn.input, { prompt = prompt, default = default, cancelreturn = CANCELLED })
         if not ok or result == CANCELLED then return nil end
         return result:gsub("\n", "")
     end
@@ -444,7 +444,8 @@ local function repossession(opts_cmd)
             return
         end
 
-        local new_name = input("Rename session to: ")
+        local current_name = get_session_name(s.session_file):gsub("^%(default%)$", "")
+        local new_name = input("Rename session to: ", current_name)
         if new_name == nil then
             vim.notify("Rename cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             return
