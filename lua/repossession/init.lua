@@ -231,7 +231,9 @@ local function open_picker(sessions)
     local lines = {}
     local active_idx = 1
     for i, s in ipairs(sessions) do
-        local marker = s.session_file == active_session_file and "~ " or "  "
+        local marker = s.session_file == active_session_file and "~ "
+                    or s.session_file == last_session_file and "- "
+                    or "  "
         local session_name = get_session_name(s.session_file)
         table.insert(lines, string.format(" %d  %s%s", i, marker, session_name))
         if s.session_file == active_session_file then
@@ -362,6 +364,11 @@ local function repossession(opts_cmd)
         local unsaved = get_unsaved_buffers()
         if #unsaved > 0 then
             vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
+            return
+        end
+
+        if s.session_file == active_session_file then
+            vim.notify("Session is already active", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
 

@@ -47,6 +47,7 @@ loaded session.
 | `n` | Create a new session |
 | `q` / `<Esc>` | Close the picker |
 
+- The active session is marked `~`, and the last session is marked `-`.
 - Git sessions cannot be renamed or deleted from the picker.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
@@ -185,7 +186,7 @@ Sessions are created with `:mksession`, which only saves what `'sessionoptions'`
 tells it to. A reasonable value for use with repossession:
 
 ```lua
-vim.opt.sessionoptions = "blank,curdir,folds,help,tabpages,winsize,terminal"
+vim.opt.sessionoptions = "blank,curdir,folds,help,tabpages,winsize,terminal,localoptions"
 ```
 
 Notes on the choices:
