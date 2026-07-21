@@ -469,8 +469,8 @@ local function repossession(opts_cmd)
             return
         end
 
-        local current_name = get_session_name(s.session_file):gsub("^%(default%)$", "")
-        local new_name = input("Rename session to: ", current_name)
+        local current_name = get_session_name(s.session_file)
+        local new_name = input("Rename session to: ", (current_name:gsub("^%(default%)$", "")))
         if new_name == nil then
             vim.notify("Rename cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             return
@@ -511,10 +511,8 @@ local function repossession(opts_cmd)
                 track_history = false,
                 flush_path = new_session_file,
             })
-            vim.notify("Renamed current session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
-        else
-            vim.notify("Renamed session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         end
+        vim.notify("Renamed session [" .. current_name .. "] to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
