@@ -56,7 +56,9 @@ local function safe_mksession(session_file)
     local tmp = session_file .. ".tmp"
     local ok, err = pcall(function() vim.cmd("mksession! " .. vim.fn.fnameescape(tmp)) end)
     if not ok then
-        local log = io.open(vim.fn.stdpath("data") .. "/repossession/error.log", "a")
+        local log_dir = vim.fn.stdpath("data") .. "/repossession"
+        vim.fn.mkdir(log_dir, "p")
+        local log = io.open(log_dir .. "/error.log", "a")
         if log then
             log:write(os.date() .. " failed to save session: " .. err .. "\n")
             log:close()
@@ -295,17 +297,20 @@ end
 local function repossession(opts_cmd)
     local args = opts_cmd and opts_cmd.fargs or {}
 
-    -- Scan for sessions
-    local sessions, scan_dir = scan_sessions()
     if picker_win_id and vim.api.nvim_win_is_valid(picker_win_id) then
         vim.api.nvim_set_current_win(picker_win_id)
         return
     end
 
+
+    -- Scan for sessions
+    local sessions, scan_dir = scan_sessions()
+
     if #sessions == 0 then
         vim.notify("No sessions found", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
+
 
     -- Subcommand: last
     if args[1] == "last" then
@@ -346,7 +351,7 @@ local function repossession(opts_cmd)
         local CANCELLED = "\0"
         local ok, result = pcall(vim.fn.input, { prompt = prompt, default = default, cancelreturn = CANCELLED })
         if not ok or result == CANCELLED then return nil end
-        return result:gsub("\n", "")
+        return (result:gsub("\n", ""))
     end
 
 
