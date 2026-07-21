@@ -413,7 +413,10 @@ local function repossession(opts_cmd)
     end
 
 
-    local function copy_session()
+    local function copy_session(idx)
+        local s = sessions[idx]
+        if not s then return end
+
         local new_name = input("Copied session name: ")
         if new_name == nil then
             vim.notify("Copy cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -434,12 +437,27 @@ local function repossession(opts_cmd)
             ensure_tidy_dir(dir)
         end
 
-        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
-        safe_mksession(new_session_file)
-        activate_shada(new_shada_file)
-        activate_session(new_session_file, nil)
+        if s.session_file == active_session_file then
+            safe_mksession(s.session_file)
+        end
 
-        vim.notify("Copied session to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        local ok, err = vim.uv.fs_copyfile(s.session_file, new_session_file)
+        if not ok then
+            vim.notify("Failed to copy session file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
+            return
+        end
+
+        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
+        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        if vim.fn.filereadable(old_shada_file) == 1 then
+            ok, err = vim.uv.fs_copyfile(old_shada_file, new_shada_file)
+            if not ok then
+                vim.notify("Failed to copy shada file: " .. err, vim.log.levels.ERROR, { title = "repossession.nvim" })
+                return
+            end
+        end
+
+        vim.notify("Copied session [" .. get_session_name(s.session_file) .. "] to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
     end
 
@@ -552,7 +570,7 @@ local function repossession(opts_cmd)
     vim.keymap.set("n", "<C-c>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "<CR>",  function() load_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "n",     function() new_session()                                       end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "c",     function() copy_session()                                      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "c",     function() copy_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
 end
