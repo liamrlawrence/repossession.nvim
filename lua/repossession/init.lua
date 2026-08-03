@@ -270,7 +270,7 @@ local function open_picker(sessions)
     })
     vim.wo[win].cursorline = true
     picker_win_id = win
-    vim.api.nvim_win_set_cursor(win, { active_idx, 0 })
+    vim.api.nvim_win_set_cursor(win, { active_idx, 1 })
 
     vim.api.nvim_create_autocmd("WinClosed", {
         pattern  = tostring(win),
