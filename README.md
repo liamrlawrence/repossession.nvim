@@ -81,6 +81,22 @@ handlers distinguish the two cases. The initial load at startup fires Post
 alone.
 
 
+## Variables
+
+repossession sets `vim.g.repossession_session` to the display name of the
+active session whenever one loads, so it can be surfaced in a statusline or
+elsewhere. Git sessions collapse to `git`; local sessions use their name
+(`(default)` when unnamed). Note this differs from the full name carried by the
+`session_name` event field, which keeps the `git:<root>` form for git sessions.
+
+The variable is only set on session activation, so it stays `nil` when Neovim
+is launched without a session (`nvim`, `nvim <file>`).
+
+| Variable | Value |
+|---|---|
+| `vim.g.repossession_session` | Active session name (`git` for git sessions), or `nil` when no session is active |
+
+
 ## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):

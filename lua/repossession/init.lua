@@ -171,6 +171,8 @@ local function activate_session(session_file, git_root, args)
         end,
     })
 
+    vim.g.repossession_session = get_session_name(session_file):gsub("^git:.*$", "git")
+
     vim.api.nvim_exec_autocmds("User", {
         pattern = "RepossessionSwitchPost",
         data = {
