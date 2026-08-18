@@ -236,7 +236,7 @@ local function open_picker(sessions)
     local active_idx = 1
     for i, s in ipairs(sessions) do
         local marker = s.session_file == active_session_file and "~ "
-                    or s.session_file == last_session_file and "- "
+                    or s.session_file == last_session_file and "· "
                     or "  "
         local session_name = get_session_name(s.session_file)
         table.insert(lines, string.format(" %d  %s%s", i, marker, session_name))

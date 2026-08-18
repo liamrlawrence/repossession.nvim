@@ -47,7 +47,7 @@ loaded session.
 | `n` | Create a new session |
 | `q` / `<Esc>` | Close the picker |
 
-- The active session is marked `~`, and the last session is marked `-`.
+- The active session is marked `~`, and the last session is marked `·`.
 - Git sessions cannot be renamed or deleted from the picker.
 - When creating or renaming a session, leaving the name blank creates or renames to the default session.
 
