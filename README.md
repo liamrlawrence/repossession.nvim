@@ -108,8 +108,8 @@ return {
     config = function()
         require("repossession").setup()
 
-        vim.keymap.set("n", "<leader>rp", "<cmd>Repossession<cr>",      { desc = "Session manager" })
-        vim.keymap.set("n", "<leader>rl", "<cmd>Repossession last<cr>", { desc = "Toggle to last session" })
+        vim.keymap.set("n", "<Leader>rp", "<Cmd>Repossession<CR>",      { desc = "Session manager" })
+        vim.keymap.set("n", "<Leader>rl", "<Cmd>Repossession last<CR>", { desc = "Toggle to last session" })
     end,
 }
 ```
@@ -202,7 +202,7 @@ Sessions are created with `:mksession`, which only saves what `'sessionoptions'`
 tells it to. A reasonable value for use with repossession:
 
 ```lua
-vim.opt.sessionoptions = "blank,curdir,folds,help,tabpages,winsize,terminal,localoptions"
+vim.opt.sessionoptions = "blank,curdir,folds,help,tabpages,winsize,terminal"
 ```
 
 Notes on the choices:
