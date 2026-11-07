@@ -11,6 +11,7 @@ local active_git_root = nil
 local last_session_file = nil
 local last_git_root = nil
 local picker_win_id = nil
+local save_timer = assert(vim.uv.new_timer())
 
 
 M.defaults = {
@@ -117,12 +118,23 @@ local function safe_mksession(session_file)
 end
 
 
+local function schedule_save()
+    save_timer:start(250, 0, vim.schedule_wrap(function()
+        -- In the cmdline window mksession can fail; leaving it fires
+        -- WinClosed, which schedules another save
+        if not active_session_file or vim.fn.getcmdwintype() ~= "" then return end
+        safe_mksession(active_session_file)
+    end))
+end
+
+
 local function activate_session(session_file, git_root, args)
     args = args or {}
     local track_history = args.track_history
     local flush_path = args.flush_path or active_session_file
 
     vim.api.nvim_clear_autocmds({ group = repossession_group })
+    save_timer:stop()
 
     if active_session_file then
         vim.api.nvim_exec_autocmds("User", {
@@ -184,6 +196,7 @@ local function activate_session(session_file, git_root, args)
             -- On exit, fire the switch-pre hook so autocmds can
             -- clean up ephemeral UI before the final save
             if ev.event == "VimLeavePre" then
+                save_timer:stop()
                 if active_session_file then
                     vim.api.nvim_exec_autocmds("User", {
                         pattern = "RepossessionSwitchPre",
@@ -194,15 +207,11 @@ local function activate_session(session_file, git_root, args)
                     })
                 end
                 drop_ignored_buffers()
-                safe_mksession(session_file)
+                safe_mksession(active_session_file)
                 return
             end
 
-            -- Ignore floating windows (hover docs, telescope, etc.)
-            local win = vim.api.nvim_get_current_win()
-            if vim.api.nvim_win_get_config(win).relative ~= "" then return end
-
-            safe_mksession(session_file)
+            schedule_save()
         end,
     })
 
