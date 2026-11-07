@@ -346,10 +346,6 @@ local function repossession(opts_cmd)
     end
 
 
-    -- Scan for sessions
-    local sessions, scan_dir = scan_sessions()
-
-
     -- Subcommand: last
     if args[1] == "last" then
         if not last_session_file then
@@ -369,6 +365,10 @@ local function repossession(opts_cmd)
         vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
+
+
+    -- Scan for sessions
+    local sessions, scan_dir = scan_sessions()
 
 
     -- Session picker
