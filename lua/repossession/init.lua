@@ -250,7 +250,7 @@ local function open_picker(sessions)
         for _, l in ipairs(lines) do max = math.max(max, #l) end
         return max + 2
     end)()))
-    local height = #lines
+    local height = (#lines > 0) and #lines or 1
     local row    = math.floor((vim.o.lines - height) / 2)
     local col    = math.floor((vim.o.columns - width) / 2)
 
@@ -307,11 +307,6 @@ local function repossession(opts_cmd)
 
     -- Scan for sessions
     local sessions, scan_dir = scan_sessions()
-
-    if #sessions == 0 then
-        vim.notify("No sessions found", vim.log.levels.INFO, { title = "repossession.nvim" })
-        return
-    end
 
 
     -- Subcommand: last
@@ -471,7 +466,9 @@ local function repossession(opts_cmd)
 
     local function rename_session(idx)
         local s = sessions[idx]
-        if not s or s.git then
+        if not s then return end
+
+        if s.git then
             vim.notify("Git sessions cannot be renamed", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
@@ -526,7 +523,9 @@ local function repossession(opts_cmd)
 
     local function delete_session(idx)
         local s = sessions[idx]
-        if not s or s.git then
+        if not s then return end
+
+        if s.git then
             vim.notify("Git sessions cannot be deleted", vim.log.levels.WARN, { title = "repossession.nvim" })
             return
         end
