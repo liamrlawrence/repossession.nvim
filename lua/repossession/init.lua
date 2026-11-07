@@ -75,8 +75,30 @@ local function drop_ignored_buffers()
 end
 
 
+local function write_shada()
+    local ok, err = pcall(vim.api.nvim_command, "wshada")
+    if not ok then
+        vim.notify("Failed to write shada: " .. err, vim.log.levels.WARN, { title = "repossession.nvim" })
+    end
+end
+
+
+local function clear_shada_state()
+    for _, r in ipairs(vim.split('abcdefghijklmnopqrstuvwxyz0123456789-/"', "")) do
+        vim.fn.setreg(r, {})
+    end
+    for _, h in ipairs({ "cmd", "search", "expr", "input", "debug" }) do
+        vim.fn.histdel(h)
+    end
+    vim.cmd("delmarks A-Z0-9")
+    vim.cmd("clearjumps")
+end
+
+
 local function activate_shada(shada_file)
-    vim.opt.shadafile = shada_file
+    write_shada()
+    clear_shada_state()
+    vim.o.shadafile = shada_file
     if vim.fn.filereadable(shada_file) == 1 then
         vim.cmd("rshada!")
     end
@@ -104,6 +126,10 @@ local function activate_session(session_file, git_root, args)
         -- handlers have cleaned up ephemeral UI.
         drop_ignored_buffers()
         safe_mksession(flush_path)
+    end
+
+    if args.shada_file then
+        activate_shada(args.shada_file)
     end
 
     if track_history ~= false then
@@ -318,8 +344,7 @@ local function repossession(opts_cmd)
 
         local last_session_name = get_session_name(last_session_file)
         local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
-        activate_shada(last_shada_file)
-        activate_session(last_session_file, last_git_root, { wipe_buffers = true })
+        activate_session(last_session_file, last_git_root, { wipe_buffers = true, shada_file = last_shada_file })
         vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
@@ -372,8 +397,7 @@ local function repossession(opts_cmd)
 
         local session_name = get_session_name(s.session_file)
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
-        activate_shada(shada_file)
-        activate_session(s.session_file, s.git_root, { wipe_buffers = true })
+        activate_session(s.session_file, s.git_root, { wipe_buffers = true, shada_file = shada_file })
 
         vim.notify("Loaded session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
@@ -407,8 +431,7 @@ local function repossession(opts_cmd)
         end
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
-        activate_shada(new_shada_file)
-        activate_session(new_session_file, nil, { wipe_buffers = true })
+        activate_session(new_session_file, nil, { wipe_buffers = true, shada_file = new_shada_file })
         safe_mksession(new_session_file)
 
         vim.notify("Created new session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -441,6 +464,7 @@ local function repossession(opts_cmd)
 
         if s.session_file == active_session_file then
             safe_mksession(s.session_file)
+            write_shada()
         end
 
         local ok, err = vim.uv.fs_copyfile(s.session_file, new_session_file)
@@ -510,7 +534,11 @@ local function repossession(opts_cmd)
         end
 
         if s.session_file == active_session_file then
-            activate_shada(new_shada_file)
+            -- NOTE: Renaming doesn't change sessions, so the in-memory shada state is
+            -- still this session's. Just retarget 'shadafile' at the renamed file:
+            -- activate_shada() would write to the old (now moved) path, clear the
+            -- live registers/history/marks, and reload the older file from disk.
+            vim.o.shadafile = new_shada_file
             activate_session(new_session_file, nil, {
                 track_history = false,
                 flush_path = new_session_file,
