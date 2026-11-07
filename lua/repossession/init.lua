@@ -617,6 +617,44 @@ local function repossession(opts_cmd)
     end
 
 
+    local function open_help()
+        local help = {
+            " <CR>     Load session",
+            " n        New session",
+            " c        Copy session",
+            " r        Rename session",
+            " d        Delete session",
+            " q/<Esc>  Close picker",
+        }
+        local width = 0
+        for _, l in ipairs(help) do width = math.max(width, vim.fn.strdisplaywidth(l)) end
+        width = width + 1
+
+        local hbuf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_buf_set_lines(hbuf, 0, -1, false, help)
+        vim.bo[hbuf].modifiable = false
+        vim.bo[hbuf].bufhidden = "wipe"
+
+        local hwin = vim.api.nvim_open_win(hbuf, false, {
+            relative  = "editor",
+            width     = width,
+            height    = #help,
+            row       = math.floor((vim.o.lines - #help) / 2),
+            col       = math.floor((vim.o.columns - width) / 2),
+            style     = "minimal",
+            border    = "rounded",
+            title     = " Help ",
+            title_pos = "center",
+            focusable = false,
+            zindex    = 60,
+        })
+
+        vim.cmd("redraw")
+        pcall(vim.fn.getcharstr, -1, { cursor = "hide" })
+        if vim.api.nvim_win_is_valid(hwin) then vim.api.nvim_win_close(hwin, true) end
+    end
+
+
     -- Keymaps
     vim.keymap.set("n", "q",     function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
@@ -626,6 +664,7 @@ local function repossession(opts_cmd)
     vim.keymap.set("n", "c",     function() copy_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "?",                open_help,                                               { buffer = buf, nowait = true })
 end
 
 
