@@ -150,6 +150,7 @@ local function activate_session(session_file, git_root, args)
     -- Setup session
     if vim.fn.filereadable(session_file) == 1 then
         vim.cmd("source " .. vim.fn.fnameescape(session_file))
+        drop_ignored_buffers()  -- remove any the session file recreated
     end
 
     if git_root then
@@ -653,6 +654,7 @@ local function session_init()
 
     -- Load session
     if session_file then
+        drop_ignored_buffers()  -- a live ignored buffer would make `source` fail with E95
         activate_session(session_file, git_sentinel_arg and cwd_git_root or nil)
 
         -- Wipe sentinel buffer after session has loaded
