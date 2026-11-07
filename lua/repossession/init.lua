@@ -675,7 +675,10 @@ local function session_init()
     local sentinel_arg = nil
 
     local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
-    local git_sentinel_arg = arg0 == opts.git_sentinel
+    local git_sentinel_arg = arg0 ~= nil
+        and arg0 == opts.git_sentinel
+        and vim.fn.filereadable(arg0) == 0
+        and vim.fn.isdirectory(arg0) == 0
     local local_sentinel_arg = arg0 ~= nil
         and vim.startswith(arg0, opts.local_sentinel)
         and vim.fn.filereadable(arg0) == 0
@@ -685,6 +688,10 @@ local function session_init()
         -- 'nvim ,' was run inside of a git project: git session, git shada
         session_file = cwd_git_dir .. "/" .. opts.git_session_file
         shada_file   = cwd_git_dir .. "/" .. opts.git_shada_file
+        sentinel_arg = arg0
+    elseif git_sentinel_arg then
+        -- 'nvim ,' was run outside of a git project: no session, just clean up
+        vim.notify("Not in a git repository", vim.log.levels.WARN, { title = "repossession.nvim" })
         sentinel_arg = arg0
     elseif local_sentinel_arg then
         -- 'nvim =' was run: local session, local shada
@@ -715,14 +722,14 @@ local function session_init()
     if session_file then
         drop_ignored_buffers()  -- a live ignored buffer would make `source` fail with E95
         activate_session(session_file, git_sentinel_arg and cwd_git_root or nil)
+    end
 
-        -- Wipe sentinel buffer after session has loaded
-        if sentinel_arg then
-            local sentinel_buf = vim.fn.bufnr(sentinel_arg)
-            if sentinel_buf ~= -1 then
-                vim.api.nvim_buf_delete(sentinel_buf, { force = true })
-                pcall(function() vim.cmd("%argdelete") end)
-            end
+    -- Wipe sentinel buffer
+    if sentinel_arg then
+        local sentinel_buf = vim.fn.bufnr(sentinel_arg)
+        if sentinel_buf ~= -1 then
+            vim.api.nvim_buf_delete(sentinel_buf, { force = true })
+            pcall(function() vim.cmd("%argdelete") end)
         end
     end
 end
