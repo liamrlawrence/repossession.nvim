@@ -27,14 +27,6 @@ M.defaults = {
 local opts = M.defaults
 
 
-local function get_session_name(session_file)
-    if cwd_git_dir and session_file == cwd_git_dir .. "/" .. opts.git_session_file then
-        return "git:" .. cwd_git_root
-    end
-    return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
-end
-
-
 local function ensure_tidy_dir(dir)
     local sessionpath_file = dir .. "/SESSIONPATH"
     vim.fn.mkdir(dir, "p")
@@ -48,21 +40,15 @@ local function ensure_tidy_dir(dir)
 end
 
 
-local function safe_mksession(session_file)
-    local tmp = session_file .. ".tmp"
-    local ok, err = pcall(function() vim.cmd("mksession! " .. vim.fn.fnameescape(tmp)) end)
-    if not ok then
-        local log_dir = vim.fn.stdpath("data") .. "/repossession"
-        vim.fn.mkdir(log_dir, "p")
-        local log = io.open(log_dir .. "/error.log", "a")
-        if log then
-            log:write(os.date() .. " failed to save session: " .. err .. "\n")
-            log:close()
+local function get_unsaved_buffers()
+    local unsaved = {}
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified then
+            local name = vim.api.nvim_buf_get_name(b)
+            table.insert(unsaved, name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]")
         end
-        os.remove(tmp)
-        return
     end
-    os.rename(tmp, session_file)
+    return unsaved
 end
 
 
@@ -102,6 +88,32 @@ local function activate_shada(shada_file)
     if vim.fn.filereadable(shada_file) == 1 then
         vim.cmd("rshada!")
     end
+end
+
+
+local function get_session_name(session_file)
+    if cwd_git_dir and session_file == cwd_git_dir .. "/" .. opts.git_session_file then
+        return "git:" .. cwd_git_root
+    end
+    return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
+end
+
+
+local function safe_mksession(session_file)
+    local tmp = session_file .. ".tmp"
+    local ok, err = pcall(function() vim.cmd("mksession! " .. vim.fn.fnameescape(tmp)) end)
+    if not ok then
+        local log_dir = vim.fn.stdpath("data") .. "/repossession"
+        vim.fn.mkdir(log_dir, "p")
+        local log = io.open(log_dir .. "/error.log", "a")
+        if log then
+            log:write(os.date() .. " failed to save session: " .. err .. "\n")
+            log:close()
+        end
+        os.remove(tmp)
+        return
+    end
+    os.rename(tmp, session_file)
 end
 
 
@@ -302,18 +314,6 @@ local function open_picker(sessions)
     })
 
     return buf, win
-end
-
-
-local function get_unsaved_buffers()
-    local unsaved = {}
-    for _, b in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified then
-            local name = vim.api.nvim_buf_get_name(b)
-            table.insert(unsaved, name ~= "" and vim.fn.fnamemodify(name, ":~:.") or "[No Name]")
-        end
-    end
-    return unsaved
 end
 
 
