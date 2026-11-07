@@ -1,5 +1,10 @@
 local M = {}
 local cwd = vim.fn.getcwd()
+local cwd_git_root, cwd_git_dir = (function()
+    local out = vim.fn.systemlist({ "git", "-C", cwd, "rev-parse", "--show-toplevel", "--absolute-git-dir" })
+    if vim.v.shell_error ~= 0 then return nil, nil end
+    return out[1], out[2]
+end)()
 local repossession_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
 local active_session_file = nil
 local active_git_root = nil
@@ -11,8 +16,8 @@ local picker_win_id = nil
 M.defaults = {
     local_sentinel    = "=",
     git_sentinel      = ",",
-    git_session_file  = ".git/session.vim",
-    git_shada_file    = ".git/session.shada",
+    git_session_file  = "session.vim",
+    git_shada_file    = "session.shada",
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
@@ -23,19 +28,10 @@ local opts = M.defaults
 
 
 local function get_session_name(session_file)
-    local git_dir = session_file:match("(.-)/%.git/.*")
-    if git_dir then
-        return "git:" .. git_dir
+    if cwd_git_dir and session_file == cwd_git_dir .. "/" .. opts.git_session_file then
+        return "git:" .. cwd_git_root
     end
-
-    local name = session_file:match("session_(.-)%.vim$")
-              or session_file:match("%.session_(.-)%.vim$")
-
-    if not name or name == "" then
-        return "(default)"
-    end
-
-    return name
+    return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
 end
 
 
@@ -188,15 +184,13 @@ local function scan_sessions()
     local sessions = {}
 
     -- Check for git session
-    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
-    local in_git = vim.v.shell_error == 0
-    if in_git then
-        local git_session = git_root .. "/" .. opts.git_session_file
+    if cwd_git_root then
+        local git_session = cwd_git_dir .. "/" .. opts.git_session_file
         if vim.fn.filereadable(git_session) == 1 then
             table.insert(sessions, {
                 session_file = git_session,
                 git          = true,
-                git_root     = git_root,
+                git_root     = cwd_git_root,
             })
         end
     end
@@ -592,9 +586,6 @@ local function session_init()
     local shada_file = opts.global_shada_file
     local sentinel_arg = nil
 
-    local git_root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(cwd) .. " rev-parse --show-toplevel")[1] or nil
-    local in_git = vim.v.shell_error == 0
-
     local arg0 = vim.fn.argc() == 1 and (vim.fn.argv(0) --[[@as string]]) or nil
     local git_sentinel_arg = arg0 == opts.git_sentinel
     local local_sentinel_arg = arg0 ~= nil
@@ -602,10 +593,10 @@ local function session_init()
         and vim.fn.filereadable(arg0) == 0
         and vim.fn.isdirectory(arg0) == 0
 
-    if in_git and git_sentinel_arg then
+    if cwd_git_root and git_sentinel_arg then
         -- 'nvim ,' was run inside of a git project: git session, git shada
-        session_file = git_root .. "/" .. opts.git_session_file
-        shada_file   = git_root .. "/" .. opts.git_shada_file
+        session_file = cwd_git_dir .. "/" .. opts.git_session_file
+        shada_file   = cwd_git_dir .. "/" .. opts.git_shada_file
         sentinel_arg = arg0
     elseif local_sentinel_arg then
         -- 'nvim =' was run: local session, local shada
@@ -634,7 +625,7 @@ local function session_init()
 
     -- Load session
     if session_file then
-        activate_session(session_file, git_sentinel_arg and git_root or nil)
+        activate_session(session_file, git_sentinel_arg and cwd_git_root or nil)
 
         -- Wipe sentinel buffer after session has loaded
         if sentinel_arg then

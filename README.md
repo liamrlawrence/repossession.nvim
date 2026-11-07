@@ -20,11 +20,12 @@ ever appears as an open buffer — both are cleaned up immediately after the
 session loads. Sentinels can be changed via the `git_sentinel` and
 `local_sentinel` config options. The two sentinels must be different.
 
-The git-project case stores both the session and shada inside `.git/`, so they
-are never tracked by git and are naturally scoped to the repository root
-regardless of which subdirectory you launched from. Local sessions similarly
-store their shada alongside the session file, keeping all state fully isolated
-per session.
+The git-project case stores both the session and shada inside the repository's
+git directory (`.git/` in a normal clone, or the linked git dir for worktrees
+and submodules). This means the files are never tracked by git and are naturally
+scoped to the repository root regardless of which subdirectory you launched from.
+Local sessions similarly store their shada alongside the session file, keeping
+all state fully isolated per session.
 
 
 ## Commands
@@ -123,8 +124,8 @@ return {
 require("repossession").setup({
     local_sentinel    = "=",
     git_sentinel      = ",",
-    git_session_file  = ".git/session.vim",
-    git_shada_file    = ".git/session.shada",
+    git_session_file  = "session.vim",
+    git_shada_file    = "session.shada",
     global_shada_file = vim.fn.stdpath("data") .. "/repossession/global.shada",
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
@@ -159,6 +160,15 @@ working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
 Note that `tidy_dir` only governs tidied local sessions; `global_shada_file` is
 configured independently, so the global shada can be pinned to its own location
 regardless of where tidied sessions are stored.
+
+#### Git session files
+
+`git_session_file` and `git_shada_file` are paths relative to the repository's
+git directory (as reported by `git rev-parse --absolute-git-dir`), not the
+repository root.
+
+The session and shada files are stored inside the repository's git directory
+(`.git/` in a normal clone, or the linked git dir for worktrees and submodules).
 
 ----
 
