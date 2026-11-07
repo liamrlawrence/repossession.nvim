@@ -130,6 +130,7 @@ require("repossession").setup({
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
     ignore_filetypes  = {},
+    show_cursorline   = true,
 })
 ```
 

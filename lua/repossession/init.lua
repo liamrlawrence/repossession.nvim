@@ -5,7 +5,8 @@ local cwd_git_root, cwd_git_dir = (function()
     if vim.v.shell_error ~= 0 then return nil, nil end
     return out[1], out[2]
 end)()
-local repossession_group = vim.api.nvim_create_augroup("repossession_nvim", { clear = true })
+local repossession_group = vim.api.nvim_create_augroup("repossession-nvim", { clear = true })
+local repossession_ns = vim.api.nvim_create_namespace("repossession-nvim_ns")
 local active_session_file = nil
 local active_git_root = nil
 local last_session_file = nil
@@ -23,6 +24,7 @@ M.defaults = {
     tidy_dir          = vim.fn.stdpath("data") .. "/repossession",
     tidy_sessions     = true,
     ignore_filetypes  = {},
+    show_cursorline   = true,
 }
 
 local opts = M.defaults
@@ -276,14 +278,19 @@ end
 local function open_picker(sessions)
     local lines = {}
     local active_idx = 1
-    for i, s in ipairs(sessions) do
-        local marker = s.session_file == active_session_file and "~ "
-                    or s.session_file == last_session_file and "· "
-                    or "  "
-        local session_name = get_session_name(s.session_file)
-        table.insert(lines, string.format(" %d  %s%s", i, marker, session_name))
-        if s.session_file == active_session_file then
-            active_idx = i
+
+    if #sessions == 0 then
+        lines = { "             ....            " }
+    else
+        for i, s in ipairs(sessions) do
+            local marker = s.session_file == active_session_file and "~ "
+                        or s.session_file == last_session_file and "· "
+                        or "  "
+            local session_name = get_session_name(s.session_file)
+            table.insert(lines, string.format(" %d  %s%s", i, marker, session_name))
+            if s.session_file == active_session_file then
+                active_idx = i
+            end
         end
     end
 
@@ -292,7 +299,7 @@ local function open_picker(sessions)
         for _, l in ipairs(lines) do max = math.max(max, #l) end
         return max + 2
     end)()))
-    local height = (#lines > 0) and #lines or 1
+    local height = #lines
     local row    = math.floor((vim.o.lines - height) / 2)
     local col    = math.floor((vim.o.columns - width) / 2)
 
@@ -300,6 +307,9 @@ local function open_picker(sessions)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
     vim.bo[buf].bufhidden = "wipe"
+    if #sessions == 0 then
+        vim.api.nvim_buf_set_extmark(buf, repossession_ns, 0, 0, { end_col = #lines[1], hl_group = "Comment" })
+    end
 
     local win = vim.api.nvim_open_win(buf, true, {
         relative  = "editor",
@@ -312,7 +322,8 @@ local function open_picker(sessions)
         title     = " Repossession ",
         title_pos = "center",
     })
-    vim.wo[win].cursorline = true
+    vim.wo[win].cursorline = #sessions > 0 and opts.show_cursorline
+    vim.wo[win].cursorlineopt = "line"
     picker_win_id = win
     vim.api.nvim_win_set_cursor(win, { active_idx, 1 })
 
