@@ -41,6 +41,16 @@ local function ensure_tidy_dir(dir)
 end
 
 
+local function tidy_cwd_dir()
+    return opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
+end
+
+
+local function restart_file()
+    return tidy_cwd_dir() .. "/RESTART"
+end
+
+
 local function get_unsaved_buffers()
     local unsaved = {}
     for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -199,6 +209,11 @@ local function activate_session(session_file, args)
             -- clean up ephemeral UI before the final save
             if ev.event == "VimLeavePre" then
                 save_timer:stop()
+                -- Remember the active session so a restart resumes it, not the one in argv
+                if (vim.v.exitreason or ""):match("^restart") and active_session_file then
+                    ensure_tidy_dir(tidy_cwd_dir())
+                    vim.fn.writefile({ active_session_file }, restart_file())
+                end
                 if active_session_file then
                     vim.api.nvim_exec_autocmds("User", {
                         pattern = "RepossessionSwitchPre",
@@ -245,7 +260,7 @@ local function scan_sessions()
     end
 
     -- Find local sessions
-    local scan_dir = opts.tidy_sessions and opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8) or cwd
+    local scan_dir = opts.tidy_sessions and tidy_cwd_dir() or cwd
     local file_pattern = opts.tidy_sessions and "^session.*%.vim$"    or "^%.session.*%.vim$"
 
     local handle = vim.uv.fs_scandir(scan_dir)
@@ -698,7 +713,7 @@ local function session_init()
 
         if opts.tidy_sessions then
             -- store in a hashed directory under tidy_dir
-            local dir = opts.tidy_dir .. "/" .. vim.fn.sha256(cwd):sub(1, 8)
+            local dir = tidy_cwd_dir()
             ensure_tidy_dir(dir)
             session_file = dir .. "/session" .. suffix .. ".vim"
             shada_file   = dir .. "/session" .. suffix .. ".shada"
@@ -711,6 +726,18 @@ local function session_init()
         sentinel_arg = arg0
     else
         -- no session, global shada
+    end
+
+    -- After :restart / ZR, resume the session that was active before restarting.
+    -- The file is removed on every startup so it can never be picked up later.
+    local resumed = nil
+    if (vim.v.startreason or ""):match("^restart") and vim.fn.filereadable(restart_file()) == 1 then
+        resumed = vim.fn.readfile(restart_file())[1]
+    end
+    os.remove(restart_file())
+    if resumed and vim.fn.filereadable(resumed) == 1 then
+        session_file = resumed
+        shada_file   = resumed:gsub("%.vim$", ".shada")
     end
 
     -- Load shada

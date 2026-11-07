@@ -145,6 +145,7 @@ By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
 ```
 ~/.local/share/nvim/repossession/<hash>/
 ├── SESSIONPATH        (the cwd this hash corresponds to)
+├── RESTART            (only briefly present during :restart)
 ├── session.vim
 ├── session.shada
 ├── session_foo.vim
@@ -154,6 +155,11 @@ By default (`tidy_sessions = true`), local sessions are stored under `tidy_dir`
 All sessions launched from the same directory share one hash folder. The
 `SESSIONPATH` file records the originating path so the folder can be identified
 later. This keeps your working directories free of session files entirely.
+
+When Neovim is restarted with `:restart` (or `ZR`), repossession resumes the session
+that was active, not the one from the original launch arguments. It does this by
+briefly writing the active session’s path to a RESTART file in the hash folder,
+which is removed on the next startup.
 
 Set `tidy_sessions = false` to instead write local sessions to the current
 working directory as dotfiles (`.session.vim`, `.session_foo.vim`, and their
