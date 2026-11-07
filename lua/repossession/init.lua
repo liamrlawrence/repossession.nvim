@@ -8,9 +8,7 @@ end)()
 local repossession_group = vim.api.nvim_create_augroup("repossession-nvim", { clear = true })
 local repossession_ns = vim.api.nvim_create_namespace("repossession-nvim_ns")
 local active_session_file = nil
-local active_git_root = nil
 local last_session_file = nil
-local last_git_root = nil
 local picker_win_id = nil
 local save_timer = assert(vim.uv.new_timer())
 
@@ -94,10 +92,13 @@ local function activate_shada(shada_file)
 end
 
 
+local function is_git_session(session_file)
+    return cwd_git_dir ~= nil and session_file == cwd_git_dir .. "/" .. opts.git_session_file
+end
+
+
 local function get_session_name(session_file)
-    if cwd_git_dir and session_file == cwd_git_dir .. "/" .. opts.git_session_file then
-        return "git:" .. cwd_git_root
-    end
+    if is_git_session(session_file) then return "git:" .. cwd_git_root end
     return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
 end
 
@@ -130,10 +131,11 @@ local function schedule_save()
 end
 
 
-local function activate_session(session_file, git_root, args)
+local function activate_session(session_file, args)
     args = args or {}
     local track_history = args.track_history
     local flush_path = args.flush_path or active_session_file
+    local git_root = is_git_session(session_file) and cwd_git_root or nil
 
     vim.api.nvim_clear_autocmds({ group = repossession_group })
     save_timer:stop()
@@ -160,10 +162,8 @@ local function activate_session(session_file, git_root, args)
 
     if track_history ~= false then
         last_session_file = active_session_file
-        last_git_root = active_git_root
     end
     active_session_file = session_file
-    active_git_root = git_root
 
     if args.wipe_buffers then
         for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -240,7 +240,6 @@ local function scan_sessions()
             table.insert(sessions, {
                 session_file = git_session,
                 git          = true,
-                git_root     = cwd_git_root,
             })
         end
     end
@@ -258,7 +257,6 @@ local function scan_sessions()
                 table.insert(sessions, {
                     session_file = scan_dir .. "/" .. fname,
                     git          = false,
-                    git_root     = nil,
                 })
             end
         end
@@ -361,7 +359,7 @@ local function repossession(opts_cmd)
 
         local last_session_name = get_session_name(last_session_file)
         local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
-        activate_session(last_session_file, last_git_root, { wipe_buffers = true, shada_file = last_shada_file })
+        activate_session(last_session_file, { wipe_buffers = true, shada_file = last_shada_file })
         vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
     end
@@ -418,7 +416,7 @@ local function repossession(opts_cmd)
 
         local session_name = get_session_name(s.session_file)
         local shada_file = s.session_file:gsub("%.vim$", ".shada")
-        activate_session(s.session_file, s.git_root, { wipe_buffers = true, shada_file = shada_file })
+        activate_session(s.session_file, { wipe_buffers = true, shada_file = shada_file })
 
         vim.notify("Loaded session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
     end
@@ -452,7 +450,7 @@ local function repossession(opts_cmd)
         end
 
         local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
-        activate_session(new_session_file, nil, { wipe_buffers = true, shada_file = new_shada_file })
+        activate_session(new_session_file, { wipe_buffers = true, shada_file = new_shada_file })
         safe_mksession(new_session_file)
 
         vim.notify("Created new session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -560,7 +558,7 @@ local function repossession(opts_cmd)
             -- activate_shada() would write to the old (now moved) path, clear the
             -- live registers/history/marks, and reload the older file from disk.
             vim.o.shadafile = new_shada_file
-            activate_session(new_session_file, nil, {
+            activate_session(new_session_file, {
                 track_history = false,
                 flush_path = new_session_file,
             })
@@ -609,7 +607,7 @@ local function repossession(opts_cmd)
         end
 
         if s.session_file == last_session_file then
-            last_session_file, last_git_root = nil, nil
+            last_session_file = nil
         end
 
         vim.notify("Deleted session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -721,7 +719,7 @@ local function session_init()
     -- Load session
     if session_file then
         drop_ignored_buffers()  -- a live ignored buffer would make `source` fail with E95
-        activate_session(session_file, git_sentinel_arg and cwd_git_root or nil)
+        activate_session(session_file)
     end
 
     -- Wipe sentinel buffer
