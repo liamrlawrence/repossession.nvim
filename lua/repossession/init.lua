@@ -386,6 +386,12 @@ local function repossession(opts_cmd)
 
 
     local function new_session()
+        local unsaved = get_unsaved_buffers()
+        if #unsaved > 0 then
+            vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
+            return
+        end
+
         local new_name = input("New session name: ")
         if new_name == nil then
             vim.notify("New session cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
