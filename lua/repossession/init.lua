@@ -12,6 +12,7 @@ local last_session_file = nil
 local picker_win_id = nil
 local save_timer = assert(vim.uv.new_timer())
 local saving = false
+local switching = false
 local foreign_session_file = nil
 
 
@@ -147,11 +148,9 @@ end
 
 local function activate_session(session_file, args)
     args = args or {}
-    local track_history = args.track_history
-    local flush_path = args.flush_path or active_session_file
     local git_root = is_git_session(session_file) and cwd_git_root or nil
 
-    vim.api.nvim_clear_autocmds({ group = repossession_group })
+    switching = true
     save_timer:stop()
 
     if active_session_file then
@@ -167,16 +166,14 @@ local function activate_session(session_file, args)
         -- outgoing session, then do a deterministic final save after Pre
         -- handlers have cleaned up ephemeral UI.
         drop_ignored_buffers()
-        safe_mksession(flush_path)
+        safe_mksession(active_session_file)
     end
 
     if args.shada_file then
         activate_shada(args.shada_file)
     end
 
-    if track_history ~= false then
-        last_session_file = active_session_file
-    end
+    last_session_file = active_session_file
     active_session_file = session_file
 
     if args.wipe_buffers then
@@ -199,49 +196,9 @@ local function activate_session(session_file, args)
         vim.fn.chdir(cwd)
     end
 
-    -- Enable automated save
-    vim.api.nvim_create_autocmd({
-        "BufAdd", "BufDelete", "BufEnter",
-        "WinNew", "WinClosed",
-        "TabNew", "TabClosed",
-        "VimLeavePre",
-    }, {
-        desc = "Save vim session",
-        group = repossession_group,
-        callback = function(ev)
-            -- On exit, fire the switch-pre hook so autocmds can
-            -- clean up ephemeral UI before the final save
-            if ev.event == "VimLeavePre" then
-                save_timer:stop()
-                -- Remember the active session so a restart resumes it, not the one in argv
-                if (vim.v.exitreason or ""):match("^restart") and active_session_file then
-                    ensure_tidy_dir(tidy_cwd_dir())
-                    vim.fn.writefile({ active_session_file }, restart_file())
-                    -- :restart saved its own copy of the layout before quitting (ignored buffers included) to restore after startup.
-                    -- repossession restores the session itself, so empty the restart's copy to avoid a second restore.
-                    if vim.v.exitreason == "restart" and foreign_session_file then
-                        vim.fn.writefile({ '" repossession will manage this session\'s restore' }, foreign_session_file)
-                    end
-                end
-                if active_session_file then
-                    vim.api.nvim_exec_autocmds("User", {
-                        pattern = "RepossessionSwitchPre",
-                        data = {
-                            old_session = active_session_file,
-                            new_session = nil,
-                        },
-                    })
-                end
-                drop_ignored_buffers()
-                safe_mksession(active_session_file)
-                return
-            end
-
-            schedule_save()
-        end,
-    })
-
     vim.g.repossession_session = get_session_name(session_file):gsub("^git:.*$", "git")
+
+    switching = false
 
     vim.api.nvim_exec_autocmds("User", {
         pattern = "RepossessionSwitchPost",
@@ -577,15 +534,13 @@ local function repossession(opts_cmd)
         end
 
         if s.session_file == active_session_file then
-            -- NOTE: Renaming doesn't change sessions, so the in-memory shada state is
-            -- still this session's. Just retarget 'shadafile' at the renamed file:
-            -- activate_shada() would write to the old (now moved) path, clear the
-            -- live registers/history/marks, and reload the older file from disk.
+            -- NOTE: Renaming doesn't change sessions, so just point the active session
+            -- and 'shadafile' at the renamed files. activate_shada() would write to the
+            -- old (now moved) path, clear the live registers/history/marks, and reload
+            -- the older file from disk.
             vim.o.shadafile = new_shada_file
-            activate_session(new_session_file, {
-                track_history = false,
-                flush_path = new_session_file,
-            })
+            active_session_file = new_session_file
+            vim.g.repossession_session = session_name
         end
         vim.notify("Renamed session [" .. current_name .. "] to [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         rerender()
@@ -771,6 +726,7 @@ end
 
 function M.setup(user_opts)
     opts = vim.tbl_deep_extend("force", M.defaults, user_opts or {})
+    vim.api.nvim_clear_autocmds({ group = repossession_group })
 
     -- Guards
     if opts.git_sentinel == opts.local_sentinel then
@@ -802,9 +758,55 @@ function M.setup(user_opts)
         return ok and view.visible ~= nil and view.visible() or false
     end
 
+    -- Autocmds
+    vim.api.nvim_create_autocmd({
+        "BufAdd", "BufDelete", "BufEnter",
+        "WinNew", "WinClosed",
+        "TabNew", "TabClosed",
+        "VimLeavePre",
+    }, {
+        desc = "Save vim session",
+        group = repossession_group,
+        callback = function(ev)
+            if not active_session_file then return end
+
+            -- On exit, fire the switch-pre hook so autocmds can
+            -- clean up ephemeral UI before the final save
+            if ev.event == "VimLeavePre" then
+                save_timer:stop()
+                -- Remember the active session so a restart resumes it, not the one in argv
+                if (vim.v.exitreason or ""):match("^restart") then
+                    ensure_tidy_dir(tidy_cwd_dir())
+                    vim.fn.writefile({ active_session_file }, restart_file())
+                    -- :restart saved its own copy of the layout before quitting (ignored buffers included) to restore after startup.
+                    -- repossession restores the session itself, so empty the restart's copy to avoid a second restore.
+                    if vim.v.exitreason == "restart" and foreign_session_file then
+                        vim.fn.writefile({ '" repossession will manage this session\'s restore' }, foreign_session_file)
+                    end
+                end
+                vim.api.nvim_exec_autocmds("User", {
+                    pattern = "RepossessionSwitchPre",
+                    data = {
+                        old_session = active_session_file,
+                        new_session = nil,
+                    },
+                })
+                drop_ignored_buffers()
+                safe_mksession(active_session_file)
+                return
+            end
+
+            -- Events fired by a switch itself (wiping buffers, loading the
+            -- session) must not queue a save
+            if switching then return end
+
+            schedule_save()
+        end,
+    })
+
     vim.api.nvim_create_autocmd("SessionWritePost", {
         desc = "Track session files written by others (e.g. the one :restart saves)",
-        -- NOTE: Not in repossession_group: activate_session clears that group on every switch
+        group = repossession_group,
         callback = function()
             if not saving then foreign_session_file = vim.v.this_session end
         end,
