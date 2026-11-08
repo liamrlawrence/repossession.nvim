@@ -54,6 +54,17 @@ local function restart_file()
 end
 
 
+local function is_git_session(session_file)
+    return cwd_git_dir ~= nil and session_file == cwd_git_dir .. "/" .. opts.git_session_file
+end
+
+
+local function get_session_name(session_file)
+    if is_git_session(session_file) then return "git:" .. cwd_git_root end
+    return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
+end
+
+
 local function get_unsaved_buffers()
     local unsaved = {}
     for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -72,6 +83,12 @@ local function drop_ignored_buffers()
             pcall(vim.api.nvim_buf_delete, b, { force = true })
         end
     end
+end
+
+
+local function shada_for(session_file)
+    if is_git_session(session_file) then return cwd_git_dir .. "/" .. opts.git_shada_file end
+    return (session_file:gsub("%.vim$", "")) .. ".shada"
 end
 
 
@@ -102,17 +119,6 @@ local function activate_shada(shada_file)
     if vim.fn.filereadable(shada_file) == 1 then
         vim.cmd("rshada!")
     end
-end
-
-
-local function is_git_session(session_file)
-    return cwd_git_dir ~= nil and session_file == cwd_git_dir .. "/" .. opts.git_session_file
-end
-
-
-local function get_session_name(session_file)
-    if is_git_session(session_file) then return "git:" .. cwd_git_root end
-    return vim.fs.basename(session_file):match("^%.?session_(.+)%.vim$") or "(default)"
 end
 
 
@@ -339,7 +345,7 @@ local function repossession(opts_cmd)
         end
 
         local last_session_name = get_session_name(last_session_file)
-        local last_shada_file = last_session_file:gsub("%.vim$", ".shada")
+        local last_shada_file = shada_for(last_session_file)
         activate_session(last_session_file, { wipe_buffers = true, shada_file = last_shada_file })
         vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
         return
@@ -406,7 +412,7 @@ local function repossession(opts_cmd)
         vim.api.nvim_win_close(win, true)
 
         local session_name = get_session_name(s.session_file)
-        local shada_file = s.session_file:gsub("%.vim$", ".shada")
+        local shada_file = shada_for(s.session_file)
         activate_session(s.session_file, { wipe_buffers = true, shada_file = shada_file })
 
         vim.notify("Loaded session [" .. session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
@@ -443,7 +449,7 @@ local function repossession(opts_cmd)
             ensure_tidy_dir(dir)
         end
 
-        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        local new_shada_file = shada_for(new_session_file)
         activate_session(new_session_file, { wipe_buffers = true, shada_file = new_shada_file })
         safe_mksession(new_session_file)
 
@@ -489,8 +495,8 @@ local function repossession(opts_cmd)
             return
         end
 
-        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
-        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
+        local old_shada_file = shada_for(s.session_file)
+        local new_shada_file = shada_for(new_session_file)
         if vim.fn.filereadable(old_shada_file) == 1 then
             ok, err = vim.uv.fs_copyfile(old_shada_file, new_shada_file)
             if not ok then
@@ -538,8 +544,8 @@ local function repossession(opts_cmd)
             return
         end
 
-        local new_shada_file = new_session_file:gsub("%.vim$", ".shada")
-        local old_shada_file = s.session_file:gsub("%.vim$", ".shada")
+        local new_shada_file = shada_for(new_session_file)
+        local old_shada_file = shada_for(s.session_file)
         if vim.fn.filereadable(old_shada_file) == 1 then
             ok, err = os.rename(old_shada_file, new_shada_file)
             if not ok then
@@ -590,7 +596,7 @@ local function repossession(opts_cmd)
             return
         end
 
-        local shada_file = s.session_file:gsub("%.vim$", ".shada")
+        local shada_file = shada_for(s.session_file)
         if vim.fn.filereadable(shada_file) == 1 then
             ok, err = os.remove(shada_file)
             if not ok then
@@ -720,7 +726,7 @@ local function session_init()
     os.remove(restart_file())
     if resumed and vim.fn.filereadable(resumed) == 1 then
         session_file = resumed
-        shada_file   = resumed:gsub("%.vim$", ".shada")
+        shada_file   = shada_for(resumed)
     end
 
     -- Load shada
