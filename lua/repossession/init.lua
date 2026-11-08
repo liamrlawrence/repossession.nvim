@@ -11,6 +11,8 @@ local active_session_file = nil
 local last_session_file = nil
 local picker_win_id = nil
 local save_timer = assert(vim.uv.new_timer())
+local saving = false
+local foreign_session_file = nil
 
 
 M.defaults = {
@@ -115,7 +117,9 @@ end
 
 local function safe_mksession(session_file)
     local tmp = session_file .. ".tmp"
+    saving = true
     local ok, err = pcall(function() vim.cmd("mksession! " .. vim.fn.fnameescape(tmp)) end)
+    saving = false
     if not ok then
         local log_dir = vim.fn.stdpath("data") .. "/repossession"
         vim.fn.mkdir(log_dir, "p")
@@ -213,6 +217,11 @@ local function activate_session(session_file, args)
                 if (vim.v.exitreason or ""):match("^restart") and active_session_file then
                     ensure_tidy_dir(tidy_cwd_dir())
                     vim.fn.writefile({ active_session_file }, restart_file())
+                    -- :restart saved its own copy of the layout before quitting (ignored buffers included) to restore after startup.
+                    -- repossession restores the session itself, so empty the restart's copy to avoid a second restore.
+                    if vim.v.exitreason == "restart" and foreign_session_file then
+                        vim.fn.writefile({ '" repossession will manage this session\'s restore' }, foreign_session_file)
+                    end
                 end
                 if active_session_file then
                     vim.api.nvim_exec_autocmds("User", {
@@ -792,6 +801,14 @@ function M.setup(user_opts)
         local ok, view = pcall(require, "lazy.view")
         return ok and view.visible ~= nil and view.visible() or false
     end
+
+    vim.api.nvim_create_autocmd("SessionWritePost", {
+        desc = "Track session files written by others (e.g. the one :restart saves)",
+        -- NOTE: Not in repossession_group: activate_session clears that group on every switch
+        callback = function()
+            if not saving then foreign_session_file = vim.v.this_session end
+        end,
+    })
 
     -- Initialize
     vim.api.nvim_create_autocmd("VimEnter", {
