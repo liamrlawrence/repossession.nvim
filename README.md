@@ -58,10 +58,11 @@ loaded session.
 | Key | Action |
 |---|---|
 | `<CR>` | Load the selected session |
+| `n` | Create a new session |
 | `c` | Copy the selected session |
 | `r` | Rename the selected session |
 | `d` | Delete the selected session |
-| `n` | Create a new session |
+| `L` | Load the last active session |
 | `q` / `<Esc>` | Close the picker |
 | `?` | Show help |
 

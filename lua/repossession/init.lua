@@ -322,6 +322,25 @@ local function open_picker(sessions)
 end
 
 
+local function toggle_last_session()
+    if not last_session_file then
+        vim.notify("No previous session", vim.log.levels.WARN, { title = "repossession.nvim" })
+        return
+    end
+
+    local unsaved = get_unsaved_buffers()
+    if #unsaved > 0 then
+        vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
+        return
+    end
+
+    local last_session_name = get_session_name(last_session_file)
+    local last_shada_file = shada_for(last_session_file)
+    activate_session(last_session_file, { wipe_buffers = true, shada_file = last_shada_file })
+    vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+end
+
+
 local function repossession(opts_cmd)
     local args = opts_cmd and opts_cmd.fargs or {}
 
@@ -333,21 +352,7 @@ local function repossession(opts_cmd)
 
     -- Subcommand: last
     if args[1] == "last" then
-        if not last_session_file then
-            vim.notify("No previous session", vim.log.levels.WARN, { title = "repossession.nvim" })
-            return
-        end
-
-        local unsaved = get_unsaved_buffers()
-        if #unsaved > 0 then
-            vim.notify("Unsaved changes in [" .. table.concat(unsaved, ", ") .. "]", vim.log.levels.WARN, { title = "repossession.nvim" })
-            return
-        end
-
-        local last_session_name = get_session_name(last_session_file)
-        local last_shada_file = shada_for(last_session_file)
-        activate_session(last_session_file, { wipe_buffers = true, shada_file = last_shada_file })
-        vim.notify("Toggled session [" .. last_session_name .. "]", vim.log.levels.INFO, { title = "repossession.nvim" })
+        toggle_last_session()
         return
     end
 
@@ -621,6 +626,7 @@ local function repossession(opts_cmd)
             " c        Copy session",
             " r        Rename session",
             " d        Delete session",
+            " L        Last session",
             " q/<Esc>  Close picker",
         }
         local width = 0
@@ -655,15 +661,16 @@ local function repossession(opts_cmd)
     -- Keymaps
     local function cursor_idx() return vim.api.nvim_win_get_cursor(win)[1] end
 
-    vim.keymap.set("n", "q",     function() close()                           end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<Esc>", function() close()                           end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<C-c>", function() close()                           end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<CR>",  function() load_session(cursor_idx())        end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "n",     function() new_session()                     end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "c",     function() copy_session(cursor_idx())        end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "r",     function() rename_session(cursor_idx())      end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "d",     function() delete_session(cursor_idx())      end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "?",     function() open_help()                       end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "q",     function() close()                      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", function() close()                      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<C-c>", function() close()                      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<CR>",  function() load_session(cursor_idx())   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "n",     function() new_session()                end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "c",     function() copy_session(cursor_idx())   end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "r",     function() rename_session(cursor_idx()) end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "d",     function() delete_session(cursor_idx()) end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "L",     function() toggle_last_session()        end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "?",     function() open_help()                  end, { buffer = buf, nowait = true })
     for i = 1, math.min(9, #sessions) do
         vim.keymap.set("n", tostring(i), function() load_session(i) end, { buffer = buf, nowait = true })
     end
