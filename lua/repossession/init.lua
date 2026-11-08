@@ -322,6 +322,16 @@ local function open_picker(sessions)
 end
 
 
+local function input(prompt, default)
+    -- Input that returns nil on <Esc>
+    local CANCELLED = "\0"
+    local ok, result = pcall(vim.fn.input, { prompt = prompt, default = default, cancelreturn = CANCELLED })
+    if not ok or result == CANCELLED then return nil end
+    return (result:gsub("\n", ""))
+end
+
+
+
 local function repossession(opts_cmd)
     local args = opts_cmd and opts_cmd.fargs or {}
 
@@ -370,15 +380,6 @@ local function repossession(opts_cmd)
     local function rerender()
         close()
         repossession()
-    end
-
-
-    local function input(prompt, default)
-        -- Input that returns nil on <Esc>
-        local CANCELLED = "\0"
-        local ok, result = pcall(vim.fn.input, { prompt = prompt, default = default, cancelreturn = CANCELLED })
-        if not ok or result == CANCELLED then return nil end
-        return (result:gsub("\n", ""))
     end
 
 
