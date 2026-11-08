@@ -281,7 +281,7 @@ local function open_picker(sessions)
 
     local width = math.min(80, math.max(30, (function()
         local max = 0
-        for _, l in ipairs(lines) do max = math.max(max, #l) end
+        for _, l in ipairs(lines) do max = math.max(max, vim.fn.strdisplaywidth(l)) end
         return max + 2
     end)()))
     local height = #lines
