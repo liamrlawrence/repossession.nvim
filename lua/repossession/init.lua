@@ -49,6 +49,13 @@ local function tidy_cwd_dir()
 end
 
 
+local function in_tmp_dir(path)
+    local tmp  = vim.uv.fs_realpath(vim.uv.os_tmpdir() or "/tmp")
+    local real = vim.uv.fs_realpath(path)
+    return tmp ~= nil and real ~= nil and vim.startswith(real, tmp .. "/")
+end
+
+
 local function restart_file()
     return tidy_cwd_dir() .. "/RESTART"
 end
@@ -826,10 +833,13 @@ function M.setup(user_opts)
     })
 
     vim.api.nvim_create_autocmd("SessionWritePost", {
-        desc = "Track session files written by others (e.g. the one :restart saves)",
+        desc = "Track the session file :restart writes, so it can be wiped before exit",
         group = repossession_group,
         callback = function()
-            if not saving then foreign_session_file = vim.v.this_session end
+            if saving then return end
+            if in_tmp_dir(vim.v.this_session) then
+                foreign_session_file = vim.v.this_session
+            end
         end,
     })
 
