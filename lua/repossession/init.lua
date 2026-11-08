@@ -346,18 +346,19 @@ local function repossession(opts_cmd)
     end
 
 
-    -- Scan for sessions
     local sessions, scan_dir = scan_sessions()
-
-
-    -- Session picker
     local buf, win = open_picker(sessions)
 
 
-    local function rerender()
+    local function close()
         if vim.api.nvim_win_is_valid(win) then
             vim.api.nvim_win_close(win, true)
         end
+    end
+
+
+    local function rerender()
+        close()
         repossession()
     end
 
@@ -646,15 +647,20 @@ local function repossession(opts_cmd)
 
 
     -- Keymaps
-    vim.keymap.set("n", "q",     function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<C-c>", function() vim.api.nvim_win_close(win, true)                   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "<CR>",  function() load_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "n",     function() new_session()                                       end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "c",     function() copy_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "?",     function() open_help()                                         end, { buffer = buf, nowait = true })
+    local function cursor_idx() return vim.api.nvim_win_get_cursor(win)[1] end
+
+    vim.keymap.set("n", "q",     function() close()                           end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", function() close()                           end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<C-c>", function() close()                           end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "<CR>",  function() load_session(cursor_idx())        end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "n",     function() new_session()                     end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "c",     function() copy_session(cursor_idx())        end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "r",     function() rename_session(cursor_idx())      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "d",     function() delete_session(cursor_idx())      end, { buffer = buf, nowait = true })
+    vim.keymap.set("n", "?",     function() open_help()                       end, { buffer = buf, nowait = true })
+    for i = 1, math.min(9, #sessions) do
+        vim.keymap.set("n", tostring(i), function() load_session(i) end, { buffer = buf, nowait = true })
+    end
 end
 
 
