@@ -138,8 +138,8 @@ end
 
 local function schedule_save()
     save_timer:start(250, 0, vim.schedule_wrap(function()
-        -- In the cmdline window mksession can fail; leaving it fires
-        -- WinClosed, which schedules another save
+        -- In the cmdline window mksession can fail; leaving it fires WinClosed,
+        -- which schedules another save
         if not active_session_file or vim.fn.getcmdwintype() ~= "" then return end
         safe_mksession(active_session_file)
     end))
@@ -770,8 +770,7 @@ function M.setup(user_opts)
         callback = function(ev)
             if not active_session_file then return end
 
-            -- On exit, fire the switch-pre hook so autocmds can
-            -- clean up ephemeral UI before the final save
+            -- On exit, fire the switch-pre hook so autocmds can clean up ephemeral UI before the final save
             if ev.event == "VimLeavePre" then
                 save_timer:stop()
                 -- Remember the active session so a restart resumes it, not the one in argv
@@ -796,8 +795,7 @@ function M.setup(user_opts)
                 return
             end
 
-            -- Events fired by a switch itself (wiping buffers, loading the
-            -- session) must not queue a save
+            -- Events fired by a switch itself (wiping buffers, loading the session) must not queue a save
             if switching then return end
 
             schedule_save()
