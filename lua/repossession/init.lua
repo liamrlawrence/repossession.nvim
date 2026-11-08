@@ -202,7 +202,7 @@ local function activate_session(session_file, args)
         vim.fn.chdir(cwd)
     end
 
-    vim.g.repossession_session = get_session_name(session_file):gsub("^git:.*$", "git")
+    vim.g.repossession_session = is_git_session(session_file) and "git" or get_session_name(session_file)
 
     switching = false
 
