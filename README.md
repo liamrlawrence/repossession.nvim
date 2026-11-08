@@ -203,8 +203,9 @@ a session round-trip cleanly. `:mksession` records their buffer, and restoring
 it collides with the live buffer of the same name, raising `E95: Buffer with
 this name already exists`.
 
-Set `ignore_filetypes` to the filetypes of such buffers. Any matching buffer is
-wiped before a session is restored, so there's nothing to collide with.
+Set `ignore_filetypes` to the filetypes of such buffers. Matching buffers are
+dropped before the final save when switching sessions or quitting, and again
+before and after a session is restored.
 
 ```lua
 require("repossession").setup({
