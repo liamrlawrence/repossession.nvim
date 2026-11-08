@@ -636,7 +636,7 @@ local function repossession(opts_cmd)
     vim.keymap.set("n", "c",     function() copy_session(vim.api.nvim_win_get_cursor(win)[1])   end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "r",     function() rename_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "d",     function() delete_session(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, nowait = true })
-    vim.keymap.set("n", "?",                open_help,                                               { buffer = buf, nowait = true })
+    vim.keymap.set("n", "?",     function() open_help()                                         end, { buffer = buf, nowait = true })
 end
 
 
@@ -747,12 +747,6 @@ function M.setup(user_opts)
         end,
     })
 
-    -- Helpers
-    local function lazy_busy()
-        local ok, view = pcall(require, "lazy.view")
-        return ok and view.visible ~= nil and view.visible() or false
-    end
-
     -- Autocmds
     vim.api.nvim_create_autocmd({
         "BufAdd", "BufDelete", "BufEnter",
@@ -804,6 +798,12 @@ function M.setup(user_opts)
             if not saving then foreign_session_file = vim.v.this_session end
         end,
     })
+
+    -- Helpers
+    local function lazy_busy()
+        local ok, view = pcall(require, "lazy.view")
+        return ok and view.visible ~= nil and view.visible() or false
+    end
 
     -- Initialize
     vim.api.nvim_create_autocmd("VimEnter", {
