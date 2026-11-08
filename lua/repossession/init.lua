@@ -776,13 +776,8 @@ function M.setup(user_opts)
     vim.api.nvim_create_user_command("Repossession", repossession, {
         desc = "Browse, load, and modify available sessions for the current context",
         nargs = "?",
-        complete = function(ArgLead, CmdLine, CursorPos)
-            if CmdLine:match("^%s*Repossession%s+%S*$") == nil then
-                return {}
-            end
-            return vim.tbl_filter(function(c)
-                return vim.startswith(c, ArgLead)
-            end, { "last" })
+        complete = function(args)
+            return vim.tbl_filter(function(i) return vim.startswith(i, args) end, { "last" })
         end,
     })
 
