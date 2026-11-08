@@ -378,6 +378,15 @@ local function repossession(opts_cmd)
     end
 
 
+    local function valid_name(name)
+        if name:find("[/\\]") then
+            vim.notify("Session names cannot contain slashes", vim.log.levels.WARN, { title = "repossession.nvim" })
+            return false
+        end
+        return true
+    end
+
+
     local function load_session(idx)
         local s = sessions[idx]
         if not s then return end
@@ -415,6 +424,9 @@ local function repossession(opts_cmd)
             vim.notify("New session cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
             return
         end
+        if not valid_name(new_name) then
+            return
+        end
 
         local new_session_file = get_new_session_path(new_name)
         local session_name = get_session_name(new_session_file)
@@ -445,6 +457,9 @@ local function repossession(opts_cmd)
         local new_name = input("Copied session name: ")
         if new_name == nil then
             vim.notify("Copy cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
+            return
+        end
+        if not valid_name(new_name) then
             return
         end
 
@@ -501,6 +516,9 @@ local function repossession(opts_cmd)
         local new_name = input("Rename session to: ", (current_name:gsub("^%(default%)$", "")))
         if new_name == nil then
             vim.notify("Rename cancelled", vim.log.levels.INFO, { title = "repossession.nvim" })
+            return
+        end
+        if not valid_name(new_name) then
             return
         end
 
