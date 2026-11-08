@@ -534,8 +534,8 @@ local function repossession(opts_cmd)
         end
 
         if s.session_file == active_session_file then
-            -- NOTE: Renaming doesn't change sessions, so just point the active session
-            -- and 'shadafile' at the renamed files. activate_shada() would write to the
+            -- NOTE: renaming doesn't change sessions, so just point the active session
+            -- and shadafile at the renamed files. activate_shada() would write to the
             -- old (now moved) path, clear the live registers/history/marks, and reload
             -- the older file from disk.
             vim.o.shadafile = new_shada_file
@@ -550,11 +550,6 @@ local function repossession(opts_cmd)
     local function delete_session(idx)
         local s = sessions[idx]
         if not s then return end
-
-        if s.git then
-            vim.notify("Git sessions cannot be deleted", vim.log.levels.WARN, { title = "repossession.nvim" })
-            return
-        end
 
         if s.session_file == active_session_file then
             vim.notify("Cannot delete the active session", vim.log.levels.WARN, { title = "repossession.nvim" })
