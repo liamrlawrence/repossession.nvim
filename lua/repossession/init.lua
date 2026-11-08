@@ -738,15 +738,6 @@ local function session_init()
         shada_file   = shada_for(resumed)
     end
 
-    -- Load shada
-    activate_shada(shada_file)
-
-    -- Load session
-    if session_file then
-        drop_ignored_buffers()  -- a live ignored buffer would make `source` fail with E95
-        activate_session(session_file)
-    end
-
     -- Wipe sentinel buffer
     if sentinel_arg then
         local sentinel_buf = vim.fn.bufnr(sentinel_arg)
@@ -754,6 +745,15 @@ local function session_init()
             vim.api.nvim_buf_delete(sentinel_buf, { force = true })
             pcall(function() vim.cmd("%argdelete") end)
         end
+    end
+
+    -- Load shada
+    activate_shada(shada_file)
+
+    -- Load session
+    if session_file then
+        drop_ignored_buffers()          -- a live ignored buffer would make `source` fail with E95
+        activate_session(session_file)
     end
 end
 
