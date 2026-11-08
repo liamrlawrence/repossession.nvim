@@ -27,6 +27,22 @@ scoped to the repository root regardless of which subdirectory you launched from
 Local sessions similarly store their shada alongside the session file, keeping
 all state fully isolated per session.
 
+### Restarting
+
+When Neovim is restarted with `:restart` (or `ZR`) while a session is active,
+repossession resumes the session you were in, not the one from the original
+launch arguments. So if you launched with `nvim =` and switched to `foo`, a
+restart brings you back to `foo`.
+
+repossession restores the session from its own session file and empties the copy
+of the layout that `:restart` saves, so Neovim’s own restore has nothing to load.
+Ignored buffers (see `ignore_filetypes`) are therefore not brought back. Restarting
+with no active session (`nvim`, `nvim <file>`) is left to Neovim as usual.
+
+To carry the active session across the restart, repossession briefly writes its
+path to a `RESTART` file in the cwd's hash folder (see Storage location). It is
+removed on the next startup.
+
 
 ## Commands
 
